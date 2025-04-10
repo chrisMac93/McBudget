@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Budget This
 
-## Getting Started
+A budget management application built with Next.js, Firebase, and Material UI.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- User authentication (sign up, login, logout)
+- Add income and expense transactions
+- View transaction history
+- Delete transactions
+- Categorize transactions
+- Responsive UI with Material UI
+
+## Tech Stack
+
+- Next.js 15 with App Router
+- Firebase Authentication
+- Firebase Firestore
+- Material UI
+- TypeScript
+
+## Project Structure
+
+```
+src/
+├── app/                   # Next.js App Router
+│   ├── auth/              # Authentication pages
+│   │   ├── login/         # Login page
+│   │   └── signup/        # Signup page
+│   ├── dashboard/         # Dashboard page for managing budget
+│   ├── layout.tsx         # Root layout component
+│   └── page.tsx           # Home page (redirects to login/dashboard)
+├── components/            # Reusable components
+│   ├── TransactionForm.tsx    # Form for adding transactions
+│   └── TransactionList.tsx    # List of transactions
+├── context/               # React context
+│   ├── AuthContext.tsx    # Authentication context
+│   └── ClientAuthProvider.tsx # Client wrapper for AuthContext
+└── firebase/              # Firebase configuration and services
+    ├── auth.ts            # Authentication service
+    ├── config.ts          # Firebase initialization
+    └── services.ts        # Firestore CRUD operations
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup Instructions
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone the repository
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Set up Firebase:
+   - Create a Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
+   - Enable Authentication with Email/Password
+   - Create a Firestore database
+   - Create a web app in the Firebase project settings
+   - Copy the Firebase configuration to `.env.local` file:
+     ```
+     NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+     NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+     NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
+     NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your-measurement-id
+     ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Run the development server:
+   ```
+   npm run dev
+   ```
 
-## Learn More
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This project can be deployed with Vercel. Make sure to configure the environment variables in the Vercel project settings.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License.

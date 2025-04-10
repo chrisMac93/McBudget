@@ -1,12 +1,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --input-border: #cccccc;
+  --input-text: #000000;
+  --input-background: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --input-border: #444444;
+    --input-text: #ffffff;
+    --input-background: #333333;
   }
 }
 
@@ -33,6 +39,29 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Form styling fixes */
+.MuiOutlinedInput-notchedOutline {
+  border-color: var(--input-border) !important;
+  border-width: 2px !important;
+}
+
+.MuiInputBase-input {
+  color: var(--input-text) !important;
+}
+
+.MuiInputLabel-root {
+  color: var(--foreground) !important;
+}
+
+.MuiOutlinedInput-root {
+  background-color: var(--input-background);
+}
+
+.MuiFormHelperText-root {
+  color: var(--foreground) !important;
+  opacity: 0.8;
 }
 
 @media (prefers-color-scheme: dark) {
