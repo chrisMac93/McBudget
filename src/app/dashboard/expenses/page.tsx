@@ -8,8 +8,6 @@ import {
   CircularProgress, 
   Container, 
   Typography, 
-  Card, 
-  CardContent, 
   Paper, 
   Tabs, 
   Tab,
@@ -21,10 +19,11 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import SidebarLayout from '@/components/SidebarLayout';
-import { Expense, getAllMonthlyExpenses } from '@/firebase/services';
+import { Expense, getAllMonthlyExpenses, deleteExpense } from '@/firebase/services';
 
 // Import components dynamically with client-side only rendering
 const ExpenseForm = dynamic(() => import('@/components/ExpenseForm'), { ssr: false });
+const ExpenseCardList = dynamic(() => import('@/components/ExpenseCardList'), { ssr: false });
 
 // Helper to get month name
 const getMonthName = (month: number): string => {
@@ -44,6 +43,7 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0); // 0: All, 1: Fixed, 2: Variable, 3: Subscriptions
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Get current month and year
   const currentMonth = new Date().getMonth() + 1;
@@ -82,6 +82,7 @@ export default function ExpensesPage() {
 
   const handleSuccess = () => {
     fetchExpenses();
+    clearEditingState();
   };
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -94,6 +95,16 @@ export default function ExpensesPage() {
 
   const handleYearChange = (e: SelectChangeEvent<number>) => {
     setSelectedYear(e.target.value as number);
+  };
+
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+    // Scroll to the form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const clearEditingState = () => {
+    setEditingExpense(null);
   };
 
   // Filter expenses based on active tab
@@ -142,16 +153,16 @@ export default function ExpensesPage() {
           <Typography variant="h5" sx={{ mb: 3, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
             Add Expense
           </Typography>
-          <ExpenseForm onSuccess={handleSuccess} />
+          <ExpenseForm onSuccess={handleSuccess} initialExpense={editingExpense} />
         </Box>
         
         <Box sx={{ width: '100%', maxWidth: '100%' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2, width: '100%' }}>
             <Typography variant="h5" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
-              Expenses
+              {getCategoryLabel()} Expenses
             </Typography>
             
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end', width: { xs: '100%', sm: 'auto' } }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <FormControl size="small" sx={{ minWidth: 100, width: { xs: 'calc(50% - 4px)', sm: 'auto' } }}>
                 <InputLabel sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>Month</InputLabel>
                 <Select
@@ -199,86 +210,27 @@ export default function ExpensesPage() {
               <Tab label="Variable" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, padding: { xs: '6px 12px', sm: '12px 16px' } }} />
               <Tab label="Subscriptions" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, padding: { xs: '6px 12px', sm: '12px 16px' } }} />
             </Tabs>
-          </Paper>
-          
-          {fetchLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, width: '100%' }}>
-              <CircularProgress size={24} />
+            <Box sx={{ p: 2, width: '100%', overflowX: 'auto' }}>
+              <ExpenseCardList 
+                expenses={filteredExpenses} 
+                onEdit={handleEdit} 
+                onStatusChange={(id, status) => {
+                  console.log('Status change', id, status);
+                  const updatedExpenses = expenses.map(exp => 
+                    exp.id === id ? { ...exp, isPaid: status === 'paid' } : exp
+                  );
+                  setExpenses(updatedExpenses);
+                }} 
+                onDelete={(id) => {
+                  console.log('Delete', id);
+                  const updatedExpenses = expenses.filter(exp => exp.id !== id);
+                  setExpenses(updatedExpenses);
+                  deleteExpense(id);
+                }} 
+                loading={fetchLoading} 
+              />
             </Box>
-          ) : (
-            <>
-              {filteredExpenses.length === 0 ? (
-                <Paper sx={{ p: 2, textAlign: 'center', width: '100%' }}>
-                  <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
-                    No {getCategoryLabel().toLowerCase()} expenses found for {getMonthName(selectedMonth)} {selectedYear}.
-                  </Typography>
-                </Paper>
-              ) : (
-                <Box sx={{ maxHeight: '600px', overflow: 'auto', width: '100%' }}>
-                  {filteredExpenses.map((item) => (
-                    <Card 
-                      key={item.id} 
-                      sx={{ 
-                        mb: 2, 
-                        borderLeft: '4px solid', 
-                        borderColor: (() => {
-                          if (item.category === 'fixed') return 'info.main';
-                          if (item.category === 'variable') return 'warning.main';
-                          return 'secondary.main'; // subscription
-                        })(),
-                        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                        '&:hover': {
-                          transform: 'translateY(-3px)',
-                          boxShadow: 3
-                        },
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        minWidth: 0 // Ensure card doesn't overflow parent
-                      }}
-                    >
-                      <CardContent sx={{ padding: { xs: 1.5, sm: 3 } }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, minWidth: 0 }}>
-                          <Box sx={{ maxWidth: { xs: '100%', sm: '70%' }, minWidth: 0 }}>
-                            <Typography variant="h6" component="div" noWrap sx={{ fontSize: { xs: '0.9rem', sm: '1.25rem' } }}>
-                              {item.subcategory}
-                            </Typography>
-                            <Typography color="text.secondary" sx={{ mb: 1, fontSize: { xs: '0.8rem', sm: '0.875rem' } }} noWrap>
-                              {item.description || 'No description'}
-                            </Typography>
-                          </Box>
-                          <Typography variant="h5" component="div" color="error.main" sx={{ fontSize: { xs: '1rem', sm: '1.5rem' } }}>
-                            ${item.amount.toFixed(2)}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, flexWrap: 'wrap', gap: 1 }}>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              color: item.isPaid ? 'success.main' : 'warning.main',
-                              fontWeight: 'bold',
-                              fontSize: { xs: '0.7rem', sm: '0.875rem' }
-                            }}
-                          >
-                            {item.isPaid ? 'PAID' : 'PENDING'}
-                          </Typography>
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary"
-                            sx={{
-                              textTransform: 'capitalize',
-                              fontSize: { xs: '0.7rem', sm: '0.875rem' }
-                            }}
-                          >
-                            {item.category} {item.recurring ? '(Recurring)' : ''}
-                          </Typography>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Box>
-              )}
-            </>
-          )}
+          </Paper>
         </Box>
       </Box>
     </SidebarLayout>

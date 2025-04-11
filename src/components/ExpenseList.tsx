@@ -14,20 +14,51 @@ import {
   Box,
   Chip,
   useTheme,
-  CircularProgress
+  CircularProgress,
+  MenuItem,
+  Select,
+  SelectChangeEvent
 } from '@mui/material';
-import { Edit as EditIcon } from '@mui/icons-material';
-import { Expense } from '@/firebase/services';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import Menu from '@mui/material/Menu';
+import { Expense, addOrUpdateExpense } from '@/firebase/services';
 import { Timestamp } from 'firebase/firestore';
 
 interface ExpenseListProps {
   expenses: Expense[];
   onEdit: (expense: Expense) => void;
+  onStatusChange: (id: string, status: 'paid' | 'pending') => void;
+  onDelete: (id: string) => void;
   loading?: boolean;
 }
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, loading = false }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onStatusChange, onDelete, loading = false }) => {
   const theme = useTheme();
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [selectedExpense, setSelectedExpense] = React.useState<Expense | null>(null);
+
+  const handleStatusChange = (id: string | undefined, event: SelectChangeEvent<'paid' | 'pending'>) => {
+    if (!id) return;
+    const newStatus = event.target.value as 'paid' | 'pending';
+    onStatusChange(id, newStatus);
+    const expenseToUpdate = expenses.find(exp => exp.id === id);
+    if (expenseToUpdate) {
+      addOrUpdateExpense({
+        ...expenseToUpdate,
+        isPaid: newStatus === 'paid'
+      });
+    }
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, expense: Expense) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedExpense(expense);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedExpense(null);
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -36,7 +67,8 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, loading = f
     }).format(amount);
   };
 
-  const formatDate = (date: Date | Timestamp) => {
+  const formatDate = (date: Date | Timestamp | undefined) => {
+    if (!date) return 'N/A';
     const dateObj = date instanceof Date ? date : date.toDate();
     return dateObj.toLocaleDateString('en-US', {
       month: 'short',
@@ -67,10 +99,9 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, loading = f
     <TableContainer 
       component={Paper} 
       sx={{ 
-        borderRadius: 2,
-        background: theme.palette.mode === 'dark' 
-          ? 'linear-gradient(145deg, rgba(30,30,30,0.8), rgba(20,20,20,0.8))'
-          : 'linear-gradient(145deg, rgba(255,255,255,0.8), rgba(240,240,240,0.8))'
+        mt: 3,
+        borderRadius: 1,
+        background: theme.palette.background.paper
       }}
     >
       <Table>
@@ -86,7 +117,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, loading = f
         </TableHead>
         <TableBody>
           {expenses.map((expense) => (
-            <TableRow key={expense.id}>
+            <TableRow key={expense.id || 'unknown'}>
               <TableCell>{expense.description}</TableCell>
               <TableCell>
                 <Chip 
@@ -104,15 +135,19 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, loading = f
               <TableCell>{formatCurrency(expense.amount)}</TableCell>
               <TableCell>{formatDate(expense.dueDate)}</TableCell>
               <TableCell>
-                <Chip 
-                  label={expense.paymentStatus}
+                <Select
+                  value={expense.isPaid ? 'paid' : 'pending'}
+                  onChange={(event) => handleStatusChange(expense.id, event)}
                   size="small"
-                  color={expense.paymentStatus === 'paid' ? 'success' : 'warning'}
-                />
+                  sx={{ minWidth: 100 }}
+                >
+                  <MenuItem value="paid">Paid</MenuItem>
+                  <MenuItem value="pending">Pending</MenuItem>
+                </Select>
               </TableCell>
               <TableCell align="right">
                 <IconButton
-                  onClick={() => onEdit(expense)}
+                  onClick={(event) => handleMenuOpen(event, expense)}
                   size="small"
                   sx={{
                     color: theme.palette.primary.main,
@@ -121,13 +156,33 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, loading = f
                     }
                   }}
                 >
-                  <EditIcon />
+                  <MoreVertIcon />
                 </IconButton>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={() => {
+          onEdit(selectedExpense!);
+          handleMenuClose();
+        }}>
+          Edit
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (selectedExpense?.id) {
+            onDelete(selectedExpense.id);
+            handleMenuClose();
+          }
+        }}>
+          Delete
+        </MenuItem>
+      </Menu>
     </TableContainer>
   );
 };

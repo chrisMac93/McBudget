@@ -24,6 +24,8 @@ import {
   Select,
   MenuItem,
   SelectChangeEvent,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import {
   Wallet as WalletIcon,
@@ -53,34 +55,44 @@ const generateYearOptions = (): number[] => {
 };
 
 // Helper to calculate weekly income for recurring items
-const calculateTotalIncomeWithRecurring = async (selectedMonth: number, selectedYear: number) => {
+const calculateTotalIncomeWithRecurring = async (selectedMonth: number, selectedYear: number, includePending: boolean) => {
   const incomeData = await getMonthlyIncome(selectedMonth, selectedYear);
   
   let total = 0;
   
-  incomeData.forEach(income => {
-    if (income.recurring && income.frequency === 'weekly') {
-      // Count weeks in the month
-      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-      const weeksInMonth = Math.floor(daysInMonth / 7);
-      total += income.amount * weeksInMonth;
-    } 
-    else if (income.recurring && income.frequency === 'biweekly') {
-      // Count biweeks in the month
-      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-      const biweeksInMonth = Math.floor(daysInMonth / 14);
-      total += income.amount * biweeksInMonth;
-    }
-    else {
-      total += income.amount;
-    }
-  });
+  incomeData
+    .filter(income => includePending || income.isPaid)
+    .forEach(income => {
+      if (income.recurring && income.frequency === 'weekly') {
+        // Count weeks in the month
+        const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+        const weeksInMonth = Math.floor(daysInMonth / 7);
+        total += income.amount * weeksInMonth;
+      } 
+      else if (income.recurring && income.frequency === 'biweekly') {
+        // Count biweeks in the month
+        const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+        const biweeksInMonth = Math.floor(daysInMonth / 14);
+        total += income.amount * biweeksInMonth;
+      }
+      else {
+        total += income.amount;
+      }
+    });
   
   return total;
 };
 
 // Chart colors
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
+
+// Calculate totals and balance based on includePending setting
+const getExpenseTotal = (expenses: Expense[], category: string, includePending: boolean) => {
+  return expenses
+    .filter(expense => expense.category === category)
+    .filter(expense => includePending || expense.isPaid)
+    .reduce((total, expense) => total + expense.amount, 0);
+};
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
@@ -99,6 +111,7 @@ export default function DashboardPage() {
   const [expensesList, setExpensesList] = useState<Expense[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
   const [dataLoading, setDataLoading] = useState(false);
+  const [includePending, setIncludePending] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -106,8 +119,6 @@ export default function DashboardPage() {
     // Redirect if not authenticated
     if (!loading && !user) {
       router.push('/auth/login');
-    } else if (!loading && user) {
-      fetchData();
     }
   }, [user, loading, router]);
   
@@ -124,7 +135,7 @@ export default function DashboardPage() {
       setExpensesList(expensesData);
       
       // Calculate total income with recurring items
-      const calculatedTotalIncome = await calculateTotalIncomeWithRecurring(selectedMonth, selectedYear);
+      const calculatedTotalIncome = await calculateTotalIncomeWithRecurring(selectedMonth, selectedYear, includePending);
       setTotalIncome(calculatedTotalIncome);
       
       console.log('Fetched income data:', incomeData.length, 'entries');
@@ -134,21 +145,20 @@ export default function DashboardPage() {
     } finally {
       setDataLoading(false);
     }
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, includePending]);
   
-  // Calculate totals and balance
-  const fixedExpenses = expensesList
-    .filter(expense => expense.category === 'fixed')
-    .reduce((total, expense) => total + expense.amount, 0);
-    
-  const variableExpenses = expensesList
-    .filter(expense => expense.category === 'variable')
-    .reduce((total, expense) => total + expense.amount, 0);
-    
-  const subscriptionExpenses = expensesList
-    .filter(expense => expense.category === 'subscription')
-    .reduce((total, expense) => total + expense.amount, 0);
-    
+  // Fetch data when filters change
+  useEffect(() => {
+    if (user && mounted) {
+      fetchData();
+    }
+  }, [fetchData, user, mounted]);
+  
+  // Calculate totals using the helper function
+  const fixedExpenses = getExpenseTotal(expensesList, 'fixed', includePending);
+  const variableExpenses = getExpenseTotal(expensesList, 'variable', includePending);
+  const subscriptionExpenses = getExpenseTotal(expensesList, 'subscription', includePending);
+  
   const totalExpenses = fixedExpenses + variableExpenses + subscriptionExpenses;
   const balance = totalIncome - totalExpenses;
   
@@ -174,6 +184,10 @@ export default function DashboardPage() {
 
   const handleYearChange = (e: SelectChangeEvent<number>) => {
     setSelectedYear(e.target.value as number);
+  };
+
+  const handleTogglePending = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setIncludePending(event.target.checked);
   };
 
   // Don't render anything server-side
@@ -204,7 +218,7 @@ export default function DashboardPage() {
           Financial Overview
         </Typography>
         
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Month</InputLabel>
             <Select
@@ -234,6 +248,25 @@ export default function DashboardPage() {
               ))}
             </Select>
           </FormControl>
+          
+          <FormControlLabel
+            control={
+              <Switch
+                checked={includePending}
+                onChange={handleTogglePending}
+                color="primary"
+              />
+            }
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography sx={{ mr: 0.5 }}>Include Pending</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ({includePending ? 'Showing all transactions' : 'Showing only paid/received transactions'})
+                </Typography>
+              </Box>
+            }
+            sx={{ ml: 1 }}
+          />
         </Box>
       </Box>
       

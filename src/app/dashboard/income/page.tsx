@@ -8,8 +8,6 @@ import {
   CircularProgress, 
   Container, 
   Typography, 
-  Card, 
-  CardContent, 
   Paper,
   FormControl,
   InputLabel,
@@ -19,10 +17,11 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import SidebarLayout from '@/components/SidebarLayout';
-import { Income, getMonthlyIncome } from '@/firebase/services';
+import { Income, getMonthlyIncome, deleteIncome, addOrUpdateIncome } from '@/firebase/services';
 
 // Import components dynamically with client-side only rendering
 const IncomeForm = dynamic(() => import('@/components/IncomeForm'), { ssr: false });
+const IncomeCardList = dynamic(() => import('@/components/IncomeCardList'), { ssr: false });
 
 // Helper to get month name
 const getMonthName = (month: number): string => {
@@ -41,6 +40,7 @@ export default function IncomePage() {
   const [mounted, setMounted] = useState(false);
   const [incomeList, setIncomeList] = useState<Income[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
+  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
 
   // Get current month and year
   const currentMonth = new Date().getMonth() + 1;
@@ -77,8 +77,19 @@ export default function IncomePage() {
     }
   };
 
+  const handleEdit = (income: Income) => {
+    setEditingIncome(income);
+    // Scroll to the form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const clearEditingState = () => {
+    setEditingIncome(null);
+  };
+
   const handleSuccess = () => {
     fetchIncome();
+    clearEditingState();
   };
 
   const handleMonthChange = (e: SelectChangeEvent<number>) => {
@@ -87,6 +98,28 @@ export default function IncomePage() {
 
   const handleYearChange = (e: SelectChangeEvent<number>) => {
     setSelectedYear(e.target.value as number);
+  };
+
+  const handleStatusChange = (id: string, status: 'received' | 'pending') => {
+    const updatedIncomeList = incomeList.map(income => 
+      income.id === id ? { ...income, isPaid: status === 'received' } : income
+    );
+    setIncomeList(updatedIncomeList);
+    
+    // Update in Firebase
+    const incomeToUpdate = incomeList.find(inc => inc.id === id);
+    if (incomeToUpdate) {
+      addOrUpdateIncome({
+        ...incomeToUpdate,
+        isPaid: status === 'received'
+      }, id);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    const updatedIncomeList = incomeList.filter(income => income.id !== id);
+    setIncomeList(updatedIncomeList);
+    deleteIncome(id);
   };
 
   // Don't render anything on server to avoid hydration issues
@@ -112,45 +145,47 @@ export default function IncomePage() {
 
   return (
     <SidebarLayout title="Income Management">
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-        <Box>
-          <Typography variant="h5" sx={{ mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, width: '100%', maxWidth: '100vw', padding: { xs: 1, sm: 2 }, overflowX: 'auto', minWidth: 0 }}>
+        <Box sx={{ width: '100%', maxWidth: '100%' }}>
+          <Typography variant="h5" sx={{ mb: 3, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
             Add Income
           </Typography>
-          <IncomeForm onSuccess={handleSuccess} />
+          <IncomeForm onSuccess={handleSuccess} initialIncome={editingIncome} />
         </Box>
         
-        <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="h5">
+        <Box sx={{ width: '100%', maxWidth: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2, width: '100%' }}>
+            <Typography variant="h5" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
               Income
             </Typography>
             
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Month</InputLabel>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <FormControl size="small" sx={{ minWidth: 100, width: { xs: 'calc(50% - 4px)', sm: 'auto' } }}>
+                <InputLabel sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>Month</InputLabel>
                 <Select
                   value={selectedMonth}
                   label="Month"
                   onChange={handleMonthChange}
+                  sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                    <MenuItem key={month} value={month}>
+                    <MenuItem key={month} value={month} sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
                       {getMonthName(month)}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
               
-              <FormControl size="small" sx={{ minWidth: 100 }}>
-                <InputLabel>Year</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 80, width: { xs: 'calc(50% - 4px)', sm: 'auto' } }}>
+                <InputLabel sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>Year</InputLabel>
                 <Select
                   value={selectedYear}
                   label="Year"
                   onChange={handleYearChange}
+                  sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}
                 >
                   {generateYearOptions().map((year) => (
-                    <MenuItem key={year} value={year}>
+                    <MenuItem key={year} value={year} sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
                       {year}
                     </MenuItem>
                   ))}
@@ -159,69 +194,17 @@ export default function IncomePage() {
             </Box>
           </Box>
           
-          {fetchLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
+          <Paper sx={{ mb: 3, overflow: 'hidden', width: '100%', maxWidth: '100%' }}>
+            <Box sx={{ p: 2, width: '100%', overflowX: 'auto' }}>
+              <IncomeCardList 
+                incomes={incomeList} 
+                onEdit={handleEdit} 
+                onStatusChange={handleStatusChange} 
+                onDelete={handleDelete} 
+                loading={fetchLoading} 
+              />
             </Box>
-          ) : (
-            <>
-              {incomeList.length === 0 ? (
-                <Paper sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="body1" color="text.secondary">
-                    No income entries found for {getMonthName(selectedMonth)} {selectedYear}.
-                  </Typography>
-                </Paper>
-              ) : (
-                <Box sx={{ maxHeight: '600px', overflow: 'auto' }}>
-                  {incomeList.map((item) => (
-                    <Card 
-                      key={item.id} 
-                      sx={{ 
-                        mb: 2, 
-                        borderLeft: '4px solid', 
-                        borderColor: item.isPaid ? 'success.main' : 'warning.main',
-                        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                        '&:hover': {
-                          transform: 'translateY(-3px)',
-                          boxShadow: 3
-                        }
-                      }}
-                    >
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ maxWidth: '70%' }}>
-                            <Typography variant="h6" component="div" noWrap>
-                              {item.source}
-                            </Typography>
-                            <Typography color="text.secondary" sx={{ mb: 1 }} noWrap>
-                              {item.description || 'No description'}
-                            </Typography>
-                          </Box>
-                          <Typography variant="h5" component="div" color="primary.main">
-                            ${item.amount.toFixed(2)}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              color: item.isPaid ? 'success.main' : 'warning.main',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            {item.isPaid ? 'RECEIVED' : 'PENDING'}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {item.recurring ? 'Recurring' : 'One-time'}
-                          </Typography>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Box>
-              )}
-            </>
-          )}
+          </Paper>
         </Box>
       </Box>
     </SidebarLayout>

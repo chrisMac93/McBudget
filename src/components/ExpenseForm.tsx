@@ -80,9 +80,10 @@ type FrequencyType = 'weekly' | 'biweekly' | 'monthly' | 'once';
 
 interface ExpenseFormProps {
   onSuccess?: () => void;
+  initialExpense?: Expense | null;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess }) => {
+const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) => {
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   const today = new Date();
@@ -100,12 +101,66 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess }) => {
     startDate: today,
     endDate: new Date(currentYear, 11, 31), // Default to end of year
     dueDate: today,
-    expectedDate: new Date()
+    expectedDate: today
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Effect to update form when initialExpense changes
+  React.useEffect(() => {
+    if (initialExpense) {
+      const dueDate = initialExpense.dueDate 
+        ? initialExpense.dueDate instanceof Date 
+          ? initialExpense.dueDate 
+          : initialExpense.dueDate.toDate()
+        : today;
+        
+      setFormData({
+        category: initialExpense.category || 'variable',
+        subcategory: initialExpense.subcategory || subcategories[initialExpense.category || 'variable'][0],
+        amount: String(initialExpense.amount) || '',
+        month: initialExpense.month || currentMonth,
+        year: initialExpense.year || currentYear,
+        recurring: initialExpense.recurring || false,
+        frequency: initialExpense.frequency || 'monthly',
+        description: initialExpense.description || '',
+        isPaid: initialExpense.isPaid || false,
+        startDate: initialExpense.startDate instanceof Date 
+          ? initialExpense.startDate 
+          : initialExpense.startDate 
+            ? initialExpense.startDate.toDate() 
+            : today,
+        endDate: initialExpense.endDate instanceof Date 
+          ? initialExpense.endDate 
+          : initialExpense.endDate 
+            ? initialExpense.endDate.toDate() 
+            : new Date(currentYear, 11, 31),
+        dueDate,
+        expectedDate: dueDate
+      });
+    }
+  }, [initialExpense, currentMonth, currentYear]);
+  
+  // Function to reset the form
+  const resetForm = () => {
+    setFormData({
+      category: 'variable' as ExpenseCategory,
+      subcategory: 'Groceries',
+      amount: '',
+      month: currentMonth,
+      year: currentYear,
+      recurring: false,
+      frequency: 'monthly' as FrequencyType,
+      description: '',
+      isPaid: false,
+      startDate: today,
+      endDate: new Date(currentYear, 11, 31),
+      dueDate: today,
+      expectedDate: today
+    });
+  };
   
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -200,46 +255,44 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess }) => {
           isPaid: formData.isPaid,
           startDate: formData.startDate,
           endDate: formData.endDate,
-          dueDate: formData.dueDate
+          dueDate: formData.expectedDate
         };
         
-        await createRecurringExpense(expenseTemplate, startMonth, startYear, endMonth, endYear);
+        if (initialExpense?.id) {
+          // Update existing expense
+          await addOrUpdateExpense({
+            ...expenseTemplate,
+            month: Number(formData.month),
+            year: Number(formData.year)
+          }, initialExpense.id);
+        } else {
+          // Create new recurring expenses
+          await createRecurringExpense(expenseTemplate, startMonth, startYear, endMonth, endYear);
+        }
       } else {
         // Handle single expense
         await addOrUpdateExpense({
           category: formData.category,
           subcategory: formData.subcategory,
           amount: Number(formData.amount),
-          month: formData.month,
-          year: formData.year,
+          month: Number(formData.month),
+          year: Number(formData.year),
           recurring: false,
           description: formData.description,
           isPaid: formData.isPaid,
-          dueDate: formData.dueDate
-        });
+          dueDate: formData.expectedDate
+        }, initialExpense?.id);
       }
       
       // Reset form
-      setFormData({
-        category: 'variable',
-        subcategory: 'Groceries',
-        amount: '',
-        month: currentMonth,
-        year: currentYear,
-        recurring: false,
-        frequency: 'monthly',
-        description: '',
-        isPaid: false,
-        startDate: today,
-        endDate: new Date(currentYear, 11, 31),
-        dueDate: today,
-        expectedDate: new Date()
-      });
+      if (!initialExpense) {
+        resetForm();
+      }
       
       setShowSuccess(true);
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error adding expense:', error);
+      console.error('Error saving expense:', error);
     } finally {
       setLoading(false);
     }
@@ -484,33 +537,52 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess }) => {
             }}
           />
           
-          <Button 
-            type="submit" 
-            variant="contained" 
-            disabled={loading}
-            size="large"
-            fullWidth
-            startIcon={<AddIcon />}
-            sx={{ 
-              mt: 2,
-              py: 1.5,
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 'bold', 
-              fontSize: '1rem',
-              background: theme => theme.palette.mode === 'dark' 
-                ? 'linear-gradient(45deg, #f44336 30%, #ff9800 90%)' 
-                : 'linear-gradient(45deg, #ff5722 30%, #f44336 90%)',
-              boxShadow: '0 4px 20px 0 rgba(244, 67, 54, 0.3)',
-              '&:hover': {
-                boxShadow: '0 6px 25px 0 rgba(244, 67, 54, 0.4)',
-                transform: 'translateY(-2px)'
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            {loading ? 'Saving...' : 'Save Expense'}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={loading}
+              size="large"
+              fullWidth
+              startIcon={<AddIcon />}
+              sx={{ 
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 'bold', 
+                fontSize: '1rem',
+                background: theme => theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(45deg, #f44336 30%, #ff9800 90%)' 
+                  : 'linear-gradient(45deg, #ff5722 30%, #f44336 90%)',
+                boxShadow: '0 4px 20px 0 rgba(244, 67, 54, 0.3)',
+                '&:hover': {
+                  boxShadow: '0 6px 25px 0 rgba(244, 67, 54, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {loading ? 'Saving...' : initialExpense ? 'Update Expense' : 'Save Expense'}
+            </Button>
+            
+            {initialExpense && (
+              <Button
+                variant="outlined"
+                size="large"
+                disabled={loading}
+                onClick={() => resetForm()}
+                sx={{
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  fontSize: '1rem'
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </Box>
         </Box>
       </LocalizationProvider>
       

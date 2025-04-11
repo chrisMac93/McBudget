@@ -22,7 +22,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { addOrUpdateIncome, createRecurringIncome } from '@/firebase/services';
+import { addOrUpdateIncome, createRecurringIncome, Income } from '@/firebase/services';
 import { Add as AddIcon } from '@mui/icons-material';
 
 // Helper to get month name
@@ -38,11 +38,13 @@ const generateYearOptions = (): number[] => {
 
 interface IncomeFormProps {
   onSuccess?: () => void;
+  initialIncome?: Income | null;
 }
 
-const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
+const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess, initialIncome }) => {
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
+  const today = new Date();
   
   const [formData, setFormData] = useState({
     source: '',
@@ -53,10 +55,58 @@ const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
     frequency: 'monthly' as 'weekly' | 'biweekly' | 'monthly' | 'once',
     description: '',
     isPaid: false,
-    startDate: new Date(),
+    startDate: today,
     endDate: new Date(currentYear, 11, 31), // Default to end of year
-    expectedDate: new Date()
+    expectedDate: today
   });
+  
+  // Effect to update form when initialIncome changes
+  React.useEffect(() => {
+    if (initialIncome) {
+      setFormData({
+        source: initialIncome.source || '',
+        amount: String(initialIncome.amount) || '',
+        month: initialIncome.month || currentMonth,
+        year: initialIncome.year || currentYear,
+        recurring: initialIncome.recurring || false,
+        frequency: initialIncome.frequency || 'monthly',
+        description: initialIncome.description || '',
+        isPaid: initialIncome.isPaid || false,
+        startDate: initialIncome.startDate instanceof Date 
+          ? initialIncome.startDate 
+          : initialIncome.startDate 
+            ? initialIncome.startDate.toDate() 
+            : today,
+        endDate: initialIncome.endDate instanceof Date 
+          ? initialIncome.endDate 
+          : initialIncome.endDate 
+            ? initialIncome.endDate.toDate() 
+            : new Date(currentYear, 11, 31),
+        expectedDate: initialIncome.startDate instanceof Date 
+          ? initialIncome.startDate 
+          : initialIncome.startDate 
+            ? initialIncome.startDate.toDate() 
+            : today
+      });
+    }
+  }, [initialIncome, currentMonth, currentYear]);
+  
+  // Function to reset the form
+  const resetForm = () => {
+    setFormData({
+      source: '',
+      amount: '',
+      month: currentMonth,
+      year: currentYear,
+      recurring: false,
+      frequency: 'monthly',
+      description: '',
+      isPaid: false,
+      startDate: today,
+      endDate: new Date(currentYear, 11, 31),
+      expectedDate: today
+    });
+  };
   
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(false);
@@ -158,39 +208,39 @@ const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
           endDate: formData.endDate
         };
         
-        await createRecurringIncome(incomeTemplate, startMonth, startYear, endMonth, endYear);
+        if (initialIncome?.id) {
+          // Update existing income
+          await addOrUpdateIncome({
+            ...incomeTemplate,
+            month: Number(formData.month),
+            year: Number(formData.year)
+          }, initialIncome.id);
+        } else {
+          // Create new recurring income
+          await createRecurringIncome(incomeTemplate, startMonth, startYear, endMonth, endYear);
+        }
       } else {
         // Handle single income
         await addOrUpdateIncome({
           source: formData.source,
           amount: Number(formData.amount),
-          month: formData.month,
-          year: formData.year,
+          month: Number(formData.month),
+          year: Number(formData.year),
           recurring: false,
           description: formData.description,
           isPaid: formData.isPaid
-        });
+        }, initialIncome?.id);
       }
       
-      // Reset form
-      setFormData({
-        source: '',
-        amount: '',
-        month: currentMonth,
-        year: currentYear,
-        recurring: false,
-        frequency: 'monthly',
-        description: '',
-        isPaid: false,
-        startDate: new Date(),
-        endDate: new Date(currentYear, 11, 31),
-        expectedDate: new Date()
-      });
+      // Reset form if not editing
+      if (!initialIncome) {
+        resetForm();
+      }
       
       setShowSuccess(true);
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error adding income:', error);
+      console.error('Error saving income:', error);
     } finally {
       setLoading(false);
     }
@@ -401,33 +451,53 @@ const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
             }}
           />
           
-          <Button 
-            type="submit" 
-            variant="contained" 
-            disabled={loading}
-            size="large"
-            fullWidth
-            startIcon={<AddIcon />}
-            sx={{ 
-              mt: 2,
-              py: 1.5,
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 'bold', 
-              fontSize: '1rem',
-              background: theme => theme.palette.mode === 'dark' 
-                ? 'linear-gradient(45deg, #9c27b0 30%, #673ab7 90%)' 
-                : 'linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)',
-              boxShadow: '0 4px 20px 0 rgba(156, 39, 176, 0.3)',
-              '&:hover': {
-                boxShadow: '0 6px 25px 0 rgba(156, 39, 176, 0.4)',
-                transform: 'translateY(-2px)'
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            {loading ? 'Saving...' : 'Save Income'}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={loading}
+              size="large"
+              fullWidth
+              startIcon={<AddIcon />}
+              sx={{ 
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 'bold', 
+                fontSize: '1rem',
+                background: theme => theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(45deg, #4caf50 30%, #8bc34a 90%)' 
+                  : 'linear-gradient(45deg, #2e7d32 30%, #4caf50 90%)',
+                boxShadow: '0 4px 20px 0 rgba(76, 175, 80, 0.3)',
+                '&:hover': {
+                  boxShadow: '0 6px 25px 0 rgba(76, 175, 80, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {loading ? 'Saving...' : initialIncome ? 'Update Income' : 'Add Income'}
+            </Button>
+            
+            {initialIncome && (
+              <Button
+                variant="outlined"
+                color="primary"
+                size="large"
+                disabled={loading}
+                onClick={() => resetForm()}
+                sx={{
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  fontSize: '1rem'
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </Box>
         </Box>
       </LocalizationProvider>
       

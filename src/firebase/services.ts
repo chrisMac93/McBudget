@@ -74,6 +74,9 @@ export interface MonthlySummary extends BaseModel {
   totalFixedExpenses: number;
   totalVariableExpenses: number;
   totalSubscriptions: number;
+  paidFixedExpenses?: number;
+  paidVariableExpenses?: number;
+  paidSubscriptions?: number;
   balance: number;  // Surplus/deficit
 }
 
@@ -539,16 +542,31 @@ export const calculateAndSaveMonthSummary = async (month: number, year: number):
     const fixedExpenses = await getMonthlyExpensesByCategory(month, year, 'fixed');
     const totalFixedExpenses = fixedExpenses.reduce((sum, item) => sum + item.amount, 0);
     
+    // Get paid fixed expenses
+    const paidFixedExpenses = fixedExpenses
+      .filter(expense => expense.isPaid)
+      .reduce((sum, item) => sum + item.amount, 0);
+    
     // Get variable expenses
     const variableExpenses = await getMonthlyExpensesByCategory(month, year, 'variable');
     const totalVariableExpenses = variableExpenses.reduce((sum, item) => sum + item.amount, 0);
+    
+    // Get paid variable expenses
+    const paidVariableExpenses = variableExpenses
+      .filter(expense => expense.isPaid)
+      .reduce((sum, item) => sum + item.amount, 0);
     
     // Get subscriptions
     const subscriptions = await getMonthlyExpensesByCategory(month, year, 'subscription');
     const totalSubscriptions = subscriptions.reduce((sum, item) => sum + item.amount, 0);
     
+    // Get paid subscriptions
+    const paidSubscriptions = subscriptions
+      .filter(expense => expense.isPaid)
+      .reduce((sum, item) => sum + item.amount, 0);
+    
     // Calculate balance
-    const balance = totalIncome - totalFixedExpenses - totalVariableExpenses;
+    const balance = totalIncome - totalFixedExpenses - totalVariableExpenses - totalSubscriptions;
     
     // Create the summary object
     const summary: Omit<MonthlySummary, 'id'> = {
@@ -559,6 +577,9 @@ export const calculateAndSaveMonthSummary = async (month: number, year: number):
       totalFixedExpenses,
       totalVariableExpenses,
       totalSubscriptions,
+      paidFixedExpenses,
+      paidVariableExpenses,
+      paidSubscriptions,
       balance,
       createdAt: Timestamp.now()
     };

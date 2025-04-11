@@ -17,7 +17,9 @@ import {
   Tab,
   Tabs,
   Skeleton,
-  Alert
+  Alert,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import SidebarLayout from '@/components/SidebarLayout';
 import { getMonthlySummary, getMonthlyIncome, Income, MonthlySummary } from '@/firebase/services';
@@ -44,28 +46,30 @@ const generateYearOptions = (): number[] => {
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 // Helper to calculate weekly income for recurring items
-const calculateTotalIncomeWithRecurring = async (selectedMonth: number, selectedYear: number) => {
+const calculateTotalIncomeWithRecurring = async (selectedMonth: number, selectedYear: number, includePending: boolean) => {
   const incomeData = await getMonthlyIncome(selectedMonth, selectedYear);
   
   let total = 0;
   
-  incomeData.forEach(income => {
-    if (income.recurring && income.frequency === 'weekly') {
-      // Count weeks in the month
-      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-      const weeksInMonth = Math.floor(daysInMonth / 7);
-      total += income.amount * weeksInMonth;
-    } 
-    else if (income.recurring && income.frequency === 'biweekly') {
-      // Count biweeks in the month
-      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-      const biweeksInMonth = Math.floor(daysInMonth / 14);
-      total += income.amount * biweeksInMonth;
-    }
-    else {
-      total += income.amount;
-    }
-  });
+  incomeData
+    .filter(income => includePending || income.isPaid)
+    .forEach(income => {
+      if (income.recurring && income.frequency === 'weekly') {
+        // Count weeks in the month
+        const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+        const weeksInMonth = Math.floor(daysInMonth / 7);
+        total += income.amount * weeksInMonth;
+      } 
+      else if (income.recurring && income.frequency === 'biweekly') {
+        // Count biweeks in the month
+        const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+        const biweeksInMonth = Math.floor(daysInMonth / 14);
+        total += income.amount * biweeksInMonth;
+      }
+      else {
+        total += income.amount;
+      }
+    });
   
   return total;
 };
@@ -79,6 +83,7 @@ export default function ChartsPage() {
   const [incomeList, setIncomeList] = useState<Income[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [totalIncome, setTotalIncome] = useState<number>(0);
+  const [includePending, setIncludePending] = useState(true);
 
   // Current date values
   const currentMonth = new Date().getMonth() + 1;
@@ -101,7 +106,7 @@ export default function ChartsPage() {
     if (user) {
       fetchData();
     }
-  }, [user, selectedMonth, selectedYear]);
+  }, [user, selectedMonth, selectedYear, includePending]);
 
   const fetchData = async () => {
     try {
@@ -112,11 +117,26 @@ export default function ChartsPage() {
         getMonthlyIncome(selectedMonth, selectedYear)
       ]);
       
-      setSummary(summaryData);
-      setIncomeList(incomeData);
+      if (summaryData) {
+        // Create a new object to avoid modifying the original
+        const updatedSummary = { ...summaryData };
+        
+        // Filter out pending items if includePending is false
+        if (!includePending) {
+          updatedSummary.totalFixedExpenses = updatedSummary.paidFixedExpenses ?? 0;
+          updatedSummary.totalVariableExpenses = updatedSummary.paidVariableExpenses ?? 0;
+          updatedSummary.totalSubscriptions = updatedSummary.paidSubscriptions ?? 0;
+        }
+        
+        setSummary(updatedSummary);
+      } else {
+        setSummary(null);
+      }
+      
+      setIncomeList(incomeData.filter(income => includePending || income.isPaid));
       
       // Calculate actual total income with proper weekly/biweekly calculations
-      const calculatedTotalIncome = await calculateTotalIncomeWithRecurring(selectedMonth, selectedYear);
+      const calculatedTotalIncome = await calculateTotalIncomeWithRecurring(selectedMonth, selectedYear, includePending);
       setTotalIncome(calculatedTotalIncome);
       
     } catch (error) {
@@ -136,6 +156,10 @@ export default function ChartsPage() {
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+  };
+
+  const handleTogglePending = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setIncludePending(event.target.checked);
   };
 
   // Generate data for expense breakdown pie chart
@@ -197,7 +221,7 @@ export default function ChartsPage() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h5">Financial Analysis</Typography>
           
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Month</InputLabel>
               <Select
@@ -227,6 +251,24 @@ export default function ChartsPage() {
                 ))}
               </Select>
             </FormControl>
+            
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={includePending}
+                  onChange={handleTogglePending}
+                  color="primary"
+                />
+              }
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ mr: 0.5 }}>Include Pending</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ({includePending ? 'Showing all transactions' : 'Showing only paid/received transactions'})
+                  </Typography>
+                </Box>
+              }
+            />
           </Box>
         </Box>
         
