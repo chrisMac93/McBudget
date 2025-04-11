@@ -31,7 +31,6 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
-import ThemeToggle from './ThemeToggle';
 
 const drawerWidth = 240;
 
@@ -84,7 +83,7 @@ export default function SidebarLayout({ children, title }: SidebarLayoutProps) {
           {user?.displayName ? user.displayName[0].toUpperCase() : user?.email?.[0].toUpperCase()}
         </Avatar>
         <Typography variant="h6" noWrap component="div">
-          {user?.displayName || user?.email}
+          {user?.displayName ? user.displayName.split(' ')[0] : user?.email?.split('@')[0]}
         </Typography>
       </Box>
       <Divider />
@@ -129,7 +128,8 @@ export default function SidebarLayout({ children, title }: SidebarLayoutProps) {
           boxShadow: 'none',
           borderBottom: `1px solid ${theme.palette.divider}`,
           backgroundColor: theme.palette.mode === 'light' ? 'white' : theme.palette.background.paper,
-          color: theme.palette.text.primary
+          color: theme.palette.text.primary,
+          borderRadius: 0
         }}
       >
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -147,8 +147,6 @@ export default function SidebarLayout({ children, title }: SidebarLayoutProps) {
               {title}
             </Typography>
           </Box>
-          
-          <ThemeToggle />
         </Toolbar>
       </AppBar>
       <Box

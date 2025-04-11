@@ -6,7 +6,7 @@ import { FirebaseError } from 'firebase/app';
 import { subscribeToAuthChanges, signIn, signUp, logout, resetPassword } from '../firebase/auth';
 
 // Enable BYPASS_AUTH for development purposes
-const BYPASS_AUTH = true;
+const BYPASS_AUTH = false;
 
 // Mock user for development when auth is bypassed
 const mockUser: User = {

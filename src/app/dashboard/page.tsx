@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -106,16 +106,12 @@ export default function DashboardPage() {
     // Redirect if not authenticated
     if (!loading && !user) {
       router.push('/auth/login');
+    } else if (!loading && user) {
+      fetchData();
     }
   }, [user, loading, router]);
   
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user, selectedMonth, selectedYear]);
-  
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setDataLoading(true);
       
@@ -138,7 +134,7 @@ export default function DashboardPage() {
     } finally {
       setDataLoading(false);
     }
-  };
+  }, [selectedMonth, selectedYear]);
   
   // Calculate totals and balance
   const fixedExpenses = expensesList
@@ -203,7 +199,7 @@ export default function DashboardPage() {
 
   return (
     <SidebarLayout title="Dashboard">
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
         <Typography variant="h5">
           Financial Overview
         </Typography>

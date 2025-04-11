@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
 import { 
   Box, 
   CircularProgress, 
@@ -23,8 +22,6 @@ import {
   Avatar,
 } from '@mui/material';
 import {
-  Brightness4,
-  Brightness7,
   Security,
   Notifications,
   Delete,
@@ -34,7 +31,6 @@ import SidebarLayout from '@/components/SidebarLayout';
 
 export default function SettingsPage() {
   const { user, loading, logOut } = useAuth();
-  const { mode, toggleTheme } = useTheme();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -158,21 +154,6 @@ export default function SettingsPage() {
         
         <Paper sx={{ borderRadius: 2 }}>
           <List>
-            <ListItem>
-              <ListItemIcon>
-                {mode === 'light' ? <Brightness7 /> : <Brightness4 />}
-              </ListItemIcon>
-              <ListItemText 
-                primary="Dark Mode" 
-                secondary={`Currently using ${mode} mode`} 
-              />
-              <Switch 
-                edge="end"
-                checked={mode === 'dark'}
-                onChange={toggleTheme}
-              />
-            </ListItem>
-            
             <Divider />
             
             <ListItem>

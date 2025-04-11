@@ -25,26 +25,19 @@ export const useTheme = () => {
 
 // Create a theme provider component
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  // Check localStorage for saved preference, default to light
-  const [mode, setMode] = useState<ThemeMode>('light');
+  // Check localStorage for saved preference, default to dark
+  const [mode, setMode] = useState<ThemeMode>('dark');
 
   // Effect to load theme from localStorage on component mount (client-side only)
   useEffect(() => {
-    const savedMode = localStorage.getItem('themeMode') as ThemeMode;
-    if (savedMode) {
-      setMode(savedMode);
-    } else {
-      // Check user's preferred color scheme if no saved preference
-      const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setMode(prefersDarkMode ? 'dark' : 'light');
-    }
+    // Always set to dark mode
+    setMode('dark');
+    localStorage.setItem('themeMode', 'dark');
   }, []);
 
-  // Theme toggle function
+  // Theme toggle function removed as dark mode is enforced
   const toggleTheme = () => {
-    const newMode = mode === 'light' ? 'dark' : 'light';
-    setMode(newMode);
-    localStorage.setItem('themeMode', newMode);
+    // Function is kept for compatibility but does nothing
   };
 
   // Create the MUI theme based on current mode

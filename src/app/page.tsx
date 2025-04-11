@@ -10,8 +10,10 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Allow automatic redirect if user is already logged in
-    if (!loading && user) {
+    // Redirect to login if user is not authenticated
+    if (!loading && !user) {
+      router.push('/auth/login');
+    } else if (!loading && user) {
       router.push('/dashboard');
     }
   }, [user, loading, router]);

@@ -137,45 +137,47 @@ export default function ExpensesPage() {
 
   return (
     <SidebarLayout title="Expense Management">
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-        <Box>
-          <Typography variant="h5" sx={{ mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, width: '100%', maxWidth: '100vw', padding: { xs: 1, sm: 2 }, overflowX: 'auto', minWidth: 0 }}>
+        <Box sx={{ width: '100%', maxWidth: '100%' }}>
+          <Typography variant="h5" sx={{ mb: 3, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
             Add Expense
           </Typography>
           <ExpenseForm onSuccess={handleSuccess} />
         </Box>
         
-        <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="h5">
+        <Box sx={{ width: '100%', maxWidth: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2, width: '100%' }}>
+            <Typography variant="h5" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
               Expenses
             </Typography>
             
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Month</InputLabel>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end', width: { xs: '100%', sm: 'auto' } }}>
+              <FormControl size="small" sx={{ minWidth: 100, width: { xs: 'calc(50% - 4px)', sm: 'auto' } }}>
+                <InputLabel sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>Month</InputLabel>
                 <Select
                   value={selectedMonth}
                   label="Month"
                   onChange={handleMonthChange}
+                  sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                    <MenuItem key={month} value={month}>
+                    <MenuItem key={month} value={month} sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
                       {getMonthName(month)}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
               
-              <FormControl size="small" sx={{ minWidth: 100 }}>
-                <InputLabel>Year</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 80, width: { xs: 'calc(50% - 4px)', sm: 'auto' } }}>
+                <InputLabel sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>Year</InputLabel>
                 <Select
                   value={selectedYear}
                   label="Year"
                   onChange={handleYearChange}
+                  sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}
                 >
                   {generateYearOptions().map((year) => (
-                    <MenuItem key={year} value={year}>
+                    <MenuItem key={year} value={year} sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
                       {year}
                     </MenuItem>
                   ))}
@@ -184,34 +186,35 @@ export default function ExpensesPage() {
             </Box>
           </Box>
           
-          <Paper sx={{ mb: 3, overflow: 'hidden' }}>
+          <Paper sx={{ mb: 3, overflow: 'hidden', width: '100%', maxWidth: '100%' }}>
             <Tabs 
               value={activeTab} 
               onChange={handleTabChange} 
-              variant="fullWidth"
-              sx={{ borderBottom: 1, borderColor: 'divider' }}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{ borderBottom: 1, borderColor: 'divider', width: '100%', fontSize: { xs: '0.8rem', sm: '1rem' } }}
             >
-              <Tab label="All" />
-              <Tab label="Fixed" />
-              <Tab label="Variable" />
-              <Tab label="Subscriptions" />
+              <Tab label="All" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, padding: { xs: '6px 12px', sm: '12px 16px' } }} />
+              <Tab label="Fixed" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, padding: { xs: '6px 12px', sm: '12px 16px' } }} />
+              <Tab label="Variable" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, padding: { xs: '6px 12px', sm: '12px 16px' } }} />
+              <Tab label="Subscriptions" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, padding: { xs: '6px 12px', sm: '12px 16px' } }} />
             </Tabs>
           </Paper>
           
           {fetchLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, width: '100%' }}>
+              <CircularProgress size={24} />
             </Box>
           ) : (
             <>
               {filteredExpenses.length === 0 ? (
-                <Paper sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="body1" color="text.secondary">
+                <Paper sx={{ p: 2, textAlign: 'center', width: '100%' }}>
+                  <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
                     No {getCategoryLabel().toLowerCase()} expenses found for {getMonthName(selectedMonth)} {selectedYear}.
                   </Typography>
                 </Paper>
               ) : (
-                <Box sx={{ maxHeight: '600px', overflow: 'auto' }}>
+                <Box sx={{ maxHeight: '600px', overflow: 'auto', width: '100%' }}>
                   {filteredExpenses.map((item) => (
                     <Card 
                       key={item.id} 
@@ -227,29 +230,33 @@ export default function ExpensesPage() {
                         '&:hover': {
                           transform: 'translateY(-3px)',
                           boxShadow: 3
-                        }
+                        },
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        minWidth: 0 // Ensure card doesn't overflow parent
                       }}
                     >
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ maxWidth: '70%' }}>
-                            <Typography variant="h6" component="div" noWrap>
+                      <CardContent sx={{ padding: { xs: 1.5, sm: 3 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, minWidth: 0 }}>
+                          <Box sx={{ maxWidth: { xs: '100%', sm: '70%' }, minWidth: 0 }}>
+                            <Typography variant="h6" component="div" noWrap sx={{ fontSize: { xs: '0.9rem', sm: '1.25rem' } }}>
                               {item.subcategory}
                             </Typography>
-                            <Typography color="text.secondary" sx={{ mb: 1 }} noWrap>
+                            <Typography color="text.secondary" sx={{ mb: 1, fontSize: { xs: '0.8rem', sm: '0.875rem' } }} noWrap>
                               {item.description || 'No description'}
                             </Typography>
                           </Box>
-                          <Typography variant="h5" component="div" color="error.main">
+                          <Typography variant="h5" component="div" color="error.main" sx={{ fontSize: { xs: '1rem', sm: '1.5rem' } }}>
                             ${item.amount.toFixed(2)}
                           </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, flexWrap: 'wrap', gap: 1 }}>
                           <Typography 
                             variant="body2" 
                             sx={{ 
                               color: item.isPaid ? 'success.main' : 'warning.main',
-                              fontWeight: 'bold'
+                              fontWeight: 'bold',
+                              fontSize: { xs: '0.7rem', sm: '0.875rem' }
                             }}
                           >
                             {item.isPaid ? 'PAID' : 'PENDING'}
@@ -258,7 +265,8 @@ export default function ExpensesPage() {
                             variant="body2" 
                             color="text.secondary"
                             sx={{
-                              textTransform: 'capitalize'
+                              textTransform: 'capitalize',
+                              fontSize: { xs: '0.7rem', sm: '0.875rem' }
                             }}
                           >
                             {item.category} {item.recurring ? '(Recurring)' : ''}

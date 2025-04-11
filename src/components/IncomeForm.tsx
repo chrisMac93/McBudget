@@ -54,7 +54,8 @@ const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
     description: '',
     isPaid: false,
     startDate: new Date(),
-    endDate: new Date(currentYear, 11, 31) // Default to end of year
+    endDate: new Date(currentYear, 11, 31), // Default to end of year
+    expectedDate: new Date()
   });
   
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -110,10 +111,23 @@ const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
   
   const handleDateChange = (name: string) => (date: Date | null) => {
     if (date) {
-      setFormData({
-        ...formData,
-        [name]: date
-      });
+      if (name === 'expectedDate') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to midnight for accurate comparison
+        const selectedDate = new Date(date);
+        selectedDate.setHours(0, 0, 0, 0);
+        const isPaid = selectedDate <= today;
+        setFormData({
+          ...formData,
+          [name]: date,
+          isPaid
+        });
+      } else {
+        setFormData({
+          ...formData,
+          [name]: date
+        });
+      }
     }
   };
   
@@ -169,7 +183,8 @@ const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
         description: '',
         isPaid: false,
         startDate: new Date(),
-        endDate: new Date(currentYear, 11, 31)
+        endDate: new Date(currentYear, 11, 31),
+        expectedDate: new Date()
       });
       
       setShowSuccess(true);
@@ -192,240 +207,229 @@ const IncomeForm: React.FC<IncomeFormProps> = ({ onSuccess }) => {
           : 'linear-gradient(145deg, #fff 30%, #f9f9f9 90%)'
       }}
     >
-      <Box 
-        component="form" 
-        onSubmit={handleSubmit} 
-        noValidate
-        sx={{ 
-          '& .MuiTextField-root': { mb: 2.5 },
-          '& .MuiFormControl-root': { mb: 2.5 },
-        }}
-      >
-        <Stack spacing={2}>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <Box 
+          component="form" 
+          onSubmit={handleSubmit} 
+          noValidate
+          sx={{ 
+            '& .MuiTextField-root': { mb: 2.5 },
+            '& .MuiFormControl-root': { mb: 2.5 },
+          }}
+        >
+          <Stack spacing={2}>
+            <TextField
+              fullWidth
+              label="Income Source"
+              name="source"
+              value={formData.source}
+              onChange={handleInputChange}
+              error={!!errors.source}
+              helperText={errors.source}
+              required
+              placeholder="e.g., Salary, Freelance Work"
+              variant="outlined"
+              InputProps={{
+                sx: { borderRadius: 2 }
+              }}
+            />
+            
+            <TextField
+              fullWidth
+              label="Amount"
+              name="amount"
+              type="number"
+              value={formData.amount}
+              onChange={handleInputChange}
+              error={!!errors.amount}
+              helperText={errors.amount}
+              required
+              variant="outlined"
+              InputProps={{
+                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                sx: { borderRadius: 2 }
+              }}
+            />
+            
+            <Box>
+              <DatePicker
+                label="Expected Payment Date"
+                value={formData.expectedDate}
+                onChange={handleDateChange('expectedDate')}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    size: "small"
+                  }
+                }}
+              />
+            </Box>
+          </Stack>
+          
+          <FormControlLabel
+            control={
+              <Checkbox 
+                checked={formData.recurring} 
+                onChange={handleCheckboxChange} 
+                name="recurring" 
+                color="primary"
+              />
+            }
+            label="Recurring Income"
+            sx={{ mb: 2, mt: 1 }}
+          />
+          
+          {formData.recurring ? (
+            <Box sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+                <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                  <FormControl fullWidth error={!!errors.frequency} variant="outlined">
+                    <InputLabel>Frequency</InputLabel>
+                    <Select
+                      name="frequency"
+                      value={formData.frequency}
+                      label="Frequency"
+                      onChange={handleSelectChange}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      <MenuItem value="weekly">Weekly</MenuItem>
+                      <MenuItem value="biweekly">Bi-Weekly</MenuItem>
+                      <MenuItem value="monthly">Monthly</MenuItem>
+                      <MenuItem value="once">One Time</MenuItem>
+                    </Select>
+                    {errors.frequency && <FormHelperText>{errors.frequency}</FormHelperText>}
+                  </FormControl>
+                </Box>
+              </Box>
+              
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mt: 2 }}>
+                <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <DatePicker
+                      label="Start Date"
+                      value={formData.startDate}
+                      onChange={handleDateChange('startDate')}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          variant: "outlined",
+                          error: !!errors.startDate,
+                          helperText: errors.startDate,
+                          sx: { '& .MuiOutlinedInput-root': { borderRadius: 2 } }
+                        }
+                      }}
+                    />
+                  </LocalizationProvider>
+                </Box>
+                
+                <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <DatePicker
+                      label="End Date"
+                      value={formData.endDate}
+                      onChange={handleDateChange('endDate')}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          variant: "outlined",
+                          error: !!errors.endDate,
+                          helperText: errors.endDate,
+                          sx: { '& .MuiOutlinedInput-root': { borderRadius: 2 } }
+                        }
+                      }}
+                    />
+                  </LocalizationProvider>
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+                <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                  <FormControl fullWidth variant="outlined">
+                    <InputLabel>Month</InputLabel>
+                    <Select
+                      name="month"
+                      value={String(formData.month)}
+                      label="Month"
+                      onChange={handleSelectChange}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                        <MenuItem key={month} value={String(month)}>
+                          {getMonthName(month)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+                
+                <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                  <FormControl fullWidth variant="outlined">
+                    <InputLabel>Year</InputLabel>
+                    <Select
+                      name="year"
+                      value={String(formData.year)}
+                      label="Year"
+                      onChange={handleSelectChange}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      {generateYearOptions().map((year) => (
+                        <MenuItem key={year} value={String(year)}>
+                          {year}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Box>
+            </Box>
+          )}
+          
           <TextField
             fullWidth
-            label="Income Source"
-            name="source"
-            value={formData.source}
+            label="Description (Optional)"
+            name="description"
+            value={formData.description}
             onChange={handleInputChange}
-            error={!!errors.source}
-            helperText={errors.source}
-            required
-            placeholder="e.g., Salary, Freelance Work"
+            multiline
+            rows={3}
             variant="outlined"
             InputProps={{
               sx: { borderRadius: 2 }
             }}
           />
           
-          <TextField
+          <Button 
+            type="submit" 
+            variant="contained" 
+            disabled={loading}
+            size="large"
             fullWidth
-            label="Amount"
-            name="amount"
-            type="number"
-            value={formData.amount}
-            onChange={handleInputChange}
-            error={!!errors.amount}
-            helperText={errors.amount}
-            required
-            variant="outlined"
-            InputProps={{
-              startAdornment: <InputAdornment position="start">$</InputAdornment>,
-              sx: { borderRadius: 2 }
+            startIcon={<AddIcon />}
+            sx={{ 
+              mt: 2,
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 'bold', 
+              fontSize: '1rem',
+              background: theme => theme.palette.mode === 'dark' 
+                ? 'linear-gradient(45deg, #9c27b0 30%, #673ab7 90%)' 
+                : 'linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)',
+              boxShadow: '0 4px 20px 0 rgba(156, 39, 176, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 25px 0 rgba(156, 39, 176, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              transition: 'all 0.3s ease',
             }}
-          />
-        </Stack>
-        
-        <FormControlLabel
-          control={
-            <Checkbox 
-              checked={formData.recurring} 
-              onChange={handleCheckboxChange} 
-              name="recurring" 
-              color="primary"
-            />
-          }
-          label="Recurring Income"
-          sx={{ mb: 2, mt: 1 }}
-        />
-        
-        {formData.recurring ? (
-          <Box sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-              <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                <FormControl fullWidth error={!!errors.frequency} variant="outlined">
-                  <InputLabel>Frequency</InputLabel>
-                  <Select
-                    name="frequency"
-                    value={formData.frequency}
-                    label="Frequency"
-                    onChange={handleSelectChange}
-                    sx={{ borderRadius: 2 }}
-                  >
-                    <MenuItem value="weekly">Weekly</MenuItem>
-                    <MenuItem value="biweekly">Bi-Weekly</MenuItem>
-                    <MenuItem value="monthly">Monthly</MenuItem>
-                    <MenuItem value="once">One Time</MenuItem>
-                  </Select>
-                  {errors.frequency && <FormHelperText>{errors.frequency}</FormHelperText>}
-                </FormControl>
-              </Box>
-              
-              <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox 
-                      checked={formData.isPaid} 
-                      onChange={handleCheckboxChange} 
-                      name="isPaid" 
-                      color="success"
-                    />
-                  }
-                  label="Already Received"
-                />
-              </Box>
-            </Box>
-            
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mt: 2 }}>
-              <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    label="Start Date"
-                    value={formData.startDate}
-                    onChange={handleDateChange('startDate')}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        variant: "outlined",
-                        error: !!errors.startDate,
-                        helperText: errors.startDate,
-                        sx: { '& .MuiOutlinedInput-root': { borderRadius: 2 } }
-                      }
-                    }}
-                  />
-                </LocalizationProvider>
-              </Box>
-              
-              <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    label="End Date"
-                    value={formData.endDate}
-                    onChange={handleDateChange('endDate')}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        variant: "outlined",
-                        error: !!errors.endDate,
-                        helperText: errors.endDate,
-                        sx: { '& .MuiOutlinedInput-root': { borderRadius: 2 } }
-                      }
-                    }}
-                  />
-                </LocalizationProvider>
-              </Box>
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-              <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                <FormControl fullWidth variant="outlined">
-                  <InputLabel>Month</InputLabel>
-                  <Select
-                    name="month"
-                    value={String(formData.month)}
-                    label="Month"
-                    onChange={handleSelectChange}
-                    sx={{ borderRadius: 2 }}
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                      <MenuItem key={month} value={String(month)}>
-                        {getMonthName(month)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-              
-              <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                <FormControl fullWidth variant="outlined">
-                  <InputLabel>Year</InputLabel>
-                  <Select
-                    name="year"
-                    value={String(formData.year)}
-                    label="Year"
-                    onChange={handleSelectChange}
-                    sx={{ borderRadius: 2 }}
-                  >
-                    {generateYearOptions().map((year) => (
-                      <MenuItem key={year} value={String(year)}>
-                        {year}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            </Box>
-            
-            <Box sx={{ mt: 2 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox 
-                    checked={formData.isPaid} 
-                    onChange={handleCheckboxChange} 
-                    name="isPaid" 
-                    color="success"
-                  />
-                }
-                label="Already Received"
-              />
-            </Box>
-          </Box>
-        )}
-        
-        <TextField
-          fullWidth
-          label="Description (Optional)"
-          name="description"
-          value={formData.description}
-          onChange={handleInputChange}
-          multiline
-          rows={3}
-          variant="outlined"
-          InputProps={{
-            sx: { borderRadius: 2 }
-          }}
-        />
-        
-        <Button 
-          type="submit" 
-          variant="contained" 
-          disabled={loading}
-          size="large"
-          fullWidth
-          startIcon={<AddIcon />}
-          sx={{ 
-            mt: 2,
-            py: 1.5,
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 'bold', 
-            fontSize: '1rem',
-            background: theme => theme.palette.mode === 'dark' 
-              ? 'linear-gradient(45deg, #9c27b0 30%, #673ab7 90%)' 
-              : 'linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)',
-            boxShadow: '0 4px 20px 0 rgba(156, 39, 176, 0.3)',
-            '&:hover': {
-              boxShadow: '0 6px 25px 0 rgba(156, 39, 176, 0.4)',
-              transform: 'translateY(-2px)'
-            },
-            transition: 'all 0.3s ease',
-          }}
-        >
-          {loading ? 'Saving...' : 'Save Income'}
-        </Button>
-      </Box>
+          >
+            {loading ? 'Saving...' : 'Save Income'}
+          </Button>
+        </Box>
+      </LocalizationProvider>
       
       <Snackbar 
         open={showSuccess} 
