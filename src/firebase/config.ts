@@ -1,7 +1,7 @@
 // Import the Firebase SDK functions
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
 
 // Firebase configuration object - values will be loaded from environment variables
 const firebaseConfig = {
@@ -20,5 +20,13 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 // Get Firestore and Auth instances
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// Set persistence to LOCAL to ensure authentication state is maintained
+// This is wrapped in a try-catch because it might fail if called multiple times
+try {
+  setPersistence(auth, browserLocalPersistence);
+} catch (error) {
+  console.error("Error setting auth persistence:", error);
+}
 
 export { app, db, auth }; 

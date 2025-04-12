@@ -1,29 +1,44 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Container, Typography, TextField, Button, Box, Link, Alert } from '@mui/material';
+import { Container, Typography, TextField, Button, Box, Link, Alert, Divider, CircularProgress } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, error, loading, clearError } = useAuth();
-  const router = useRouter();
+  const { login, loginWithGoogle, error, loading, clearError } = useAuth();
   // Use client-side only rendering to prevent hydration issues
   const [mounted, setMounted] = useState(false);
+  // Track Google sign-in loading state separately
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    
+    // Check if the current URL contains error parameters from Google redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const errorMessage = urlParams.get('error');
+    if (errorMessage) {
+      console.error("Redirect error detected:", errorMessage);
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login(email, password);
-    
-    // If no error after login attempt, redirect to dashboard
-    if (!error) {
-      router.push('/dashboard');
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleLoading(true);
+      // Rely on loginWithGoogle to handle the entire process
+      await loginWithGoogle();
+    } catch (error) {
+      console.error("Error during Google login:", error);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -52,7 +67,7 @@ export default function LoginPage() {
           </Alert>
         )}
         
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
             required
@@ -64,6 +79,7 @@ export default function LoginPage() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
           />
           
           <TextField
@@ -77,6 +93,7 @@ export default function LoginPage() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
           />
           
           <Button
@@ -86,7 +103,28 @@ export default function LoginPage() {
             sx={{ mt: 3, mb: 2 }}
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Log In'}
+            {loading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Log In'
+            )}
+          </Button>
+
+          <Divider sx={{ my: 2 }}>OR</Divider>
+          
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={googleLoading ? null : <GoogleIcon />}
+            onClick={handleGoogleLogin}
+            disabled={googleLoading || loading}
+            sx={{ mb: 2 }}
+          >
+            {googleLoading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Sign in with Google'
+            )}
           </Button>
           
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

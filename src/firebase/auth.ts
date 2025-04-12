@@ -5,9 +5,17 @@ import {
   onAuthStateChanged,
   User,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
+  getRedirectResult,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { auth } from './config';
+
+// Initialize Google Auth Provider
+const googleProvider = new GoogleAuthProvider();
 
 // Sign up with email and password
 export const signUp = async (email: string, password: string, displayName: string): Promise<User> => {
@@ -29,11 +37,43 @@ export const signUp = async (email: string, password: string, displayName: strin
 // Sign in with email and password
 export const signIn = async (email: string, password: string): Promise<User> => {
   try {
+    // Set persistence to local to ensure user stays signed in
+    await setPersistence(auth, browserLocalPersistence);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error) {
     console.error('Error signing in:', error);
     throw error;
+  }
+};
+
+// Sign in with Google - Use popup for simplicity
+export const signInWithGoogle = async (): Promise<User | null> => {
+  try {
+    // Set persistence to LOCAL
+    await setPersistence(auth, browserLocalPersistence);
+    
+    // Use popup method - more reliable in complex environments
+    const result = await signInWithPopup(auth, googleProvider);
+    console.log("Google sign-in successful:", result.user.email);
+    return result.user;
+  } catch (error) {
+    console.error('Error signing in with Google:', error);
+    throw error;
+  }
+};
+
+// Check for redirect result (in case we switch back to redirect method)
+export const getGoogleRedirectResult = async (): Promise<User | null> => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      return result.user;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error processing Google sign-in result:', error);
+    return null;
   }
 };
 

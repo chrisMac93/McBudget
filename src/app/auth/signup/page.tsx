@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Container, Typography, TextField, Button, Box, Link, Alert } from '@mui/material';
+import { Container, Typography, TextField, Button, Box, Link, Alert, Divider } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState('');
@@ -11,8 +11,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const { register, error, loading, clearError } = useAuth();
-  const router = useRouter();
+  const { register, loginWithGoogle, error, loading, clearError } = useAuth();
   // Use client-side only rendering to prevent hydration issues
   const [mounted, setMounted] = useState(false);
 
@@ -41,11 +40,10 @@ export default function SignupPage() {
     }
     
     await register(email, password, displayName);
-    
-    // If no error after registration attempt, redirect to dashboard
-    if (!error) {
-      router.push('/dashboard');
-    }
+  };
+
+  const handleGoogleSignup = async () => {
+    await loginWithGoogle();
   };
 
   // Don't render until client-side
@@ -73,7 +71,7 @@ export default function SignupPage() {
           </Alert>
         )}
         
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
             required
@@ -136,6 +134,19 @@ export default function SignupPage() {
             disabled={loading}
           >
             {loading ? 'Creating Account...' : 'Sign Up'}
+          </Button>
+
+          <Divider sx={{ my: 2 }}>OR</Divider>
+          
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<GoogleIcon />}
+            onClick={handleGoogleSignup}
+            disabled={loading}
+            sx={{ mb: 2 }}
+          >
+            Sign up with Google
           </Button>
           
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
