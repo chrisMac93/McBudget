@@ -20,23 +20,40 @@ import {
   Alert,
   Snackbar,
   Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
 import {
   Security,
   Notifications,
   Delete,
   Logout,
+  Close as CloseIcon,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import SidebarLayout from '@/components/SidebarLayout';
 
 export default function SettingsPage() {
-  const { user, loading, logOut } = useAuth();
+  const { user, loading, logOut, error, changePassword, clearError } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // Password change states
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -68,6 +85,63 @@ export default function SettingsPage() {
     // In a real app, would implement account deletion here
     setSuccessMessage('Account deletion is not implemented in this demo.');
     setShowSuccess(true);
+  };
+
+  const handleOpenPasswordDialog = () => {
+    clearError();
+    setPasswordError('');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordDialogOpen(true);
+  };
+
+  const handleClosePasswordDialog = () => {
+    setPasswordDialogOpen(false);
+  };
+
+  const validatePasswordFields = () => {
+    if (!currentPassword) {
+      setPasswordError('Current password is required');
+      return false;
+    }
+    
+    if (!newPassword) {
+      setPasswordError('New password is required');
+      return false;
+    }
+    
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters');
+      return false;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return false;
+    }
+    
+    if (currentPassword === newPassword) {
+      setPasswordError('New password must be different from current password');
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleChangePassword = async () => {
+    if (!validatePasswordFields()) {
+      return;
+    }
+    
+    try {
+      await changePassword(currentPassword, newPassword);
+      handleClosePasswordDialog();
+      setSuccessMessage('Password changed successfully!');
+      setShowSuccess(true);
+    } catch {
+      // Error handling is done in the AuthContext
+    }
   };
 
   // Don't render anything on server to avoid hydration issues
@@ -183,9 +257,9 @@ export default function SettingsPage() {
               <Button 
                 variant="outlined" 
                 size="small"
-                disabled
+                onClick={handleOpenPasswordDialog}
               >
-                Manage
+                Change Password
               </Button>
             </ListItem>
             
@@ -241,6 +315,91 @@ export default function SettingsPage() {
         </Box>
       </Box>
       
+      {/* Password Change Dialog */}
+      <Dialog 
+        open={passwordDialogOpen}
+        onClose={handleClosePasswordDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Change Password
+          <IconButton onClick={handleClosePasswordDialog}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {passwordError}
+            </Alert>
+          )}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, my: 1 }}>
+            <Box sx={{ position: 'relative' }}>
+              <TextField
+                label="Current Password"
+                type={showCurrentPassword ? "text" : "password"}
+                fullWidth
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                margin="normal"
+                variant="outlined"
+              />
+              <IconButton
+                sx={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }}
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+              >
+                {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </Box>
+            
+            <Box sx={{ position: 'relative' }}>
+              <TextField
+                label="New Password"
+                type={showNewPassword ? "text" : "password"}
+                fullWidth
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                margin="normal"
+                variant="outlined"
+                helperText="Password must be at least 6 characters"
+              />
+              <IconButton
+                sx={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }}
+                onClick={() => setShowNewPassword(!showNewPassword)}
+              >
+                {showNewPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </Box>
+            
+            <TextField
+              label="Confirm New Password"
+              type="password"
+              fullWidth
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              margin="normal"
+              variant="outlined"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClosePasswordDialog}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleChangePassword}
+            disabled={loading}
+          >
+            {loading ? 'Updating...' : 'Update Password'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
       <Snackbar 
         open={showSuccess} 
         autoHideDuration={6000} 
@@ -249,9 +408,7 @@ export default function SettingsPage() {
       >
         <Alert 
           onClose={() => setShowSuccess(false)} 
-          severity="success" 
-          variant="filled"
-          sx={{ width: '100%' }}
+          severity="success"
         >
           {successMessage}
         </Alert>

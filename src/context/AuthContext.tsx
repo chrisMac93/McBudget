@@ -9,7 +9,8 @@ import {
   signUp, 
   logout, 
   resetPassword,
-  signInWithGoogle
+  signInWithGoogle,
+  changePassword
 } from '../firebase/auth';
 import { useRouter } from 'next/navigation';
 
@@ -63,6 +64,7 @@ interface AuthContextType {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -76,6 +78,7 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => {},
   logOut: async () => {},
   resetPassword: async () => {},
+  changePassword: async () => {},
   clearError: () => {},
 });
 
@@ -345,6 +348,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Change password function
+  const changePasswordFn = async (currentPassword: string, newPassword: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      if (BYPASS_AUTH) {
+        // Simulate successful password change
+        console.log('Password changed successfully (mock)');
+      } else {
+        await changePassword(currentPassword, newPassword);
+      }
+    } catch (err: unknown) {
+      console.error("Password change error:", err);
+      if (err instanceof FirebaseError) {
+        setError(err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Clear error function
   const clearError = () => {
     setError(null);
@@ -360,6 +389,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logOut,
     resetPassword: resetPasswordFn,
+    changePassword: changePasswordFn,
     clearError,
   };
 

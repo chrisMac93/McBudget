@@ -10,7 +10,10 @@ import {
   signInWithPopup,
   getRedirectResult,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth';
 import { auth } from './config';
 
@@ -105,4 +108,26 @@ export const getCurrentUser = (): User | null => {
 // Subscribe to auth state changes
 export const subscribeToAuthChanges = (callback: (user: User | null) => void): (() => void) => {
   return onAuthStateChanged(auth, callback);
+};
+
+// Update password
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+  try {
+    const user = auth.currentUser;
+    
+    if (!user || !user.email) {
+      throw new Error('No authenticated user found');
+    }
+    
+    // Re-authenticate user before changing password
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    
+    // Update password
+    await updatePassword(user, newPassword);
+    
+  } catch (error) {
+    console.error('Error updating password:', error);
+    throw error;
+  }
 }; 
