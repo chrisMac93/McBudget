@@ -25,7 +25,10 @@ import {
   MenuItem,
   SelectChangeEvent,
   FormControlLabel,
-  Switch
+  Switch,
+  Tab,
+  Tabs,
+  Alert
 } from '@mui/material';
 import {
   Wallet as WalletIcon,
@@ -34,7 +37,7 @@ import {
   AccountBalance as BalanceIcon,
 } from '@mui/icons-material';
 import SidebarLayout from '@/components/SidebarLayout';
-import { getMonthlyIncome, getAllMonthlyExpenses, Expense } from '@/firebase/services';
+import { getMonthlyIncome, getAllMonthlyExpenses, getMonthlySummary, Expense, Income, MonthlySummary } from '@/firebase/services';
 import dynamic from 'next/dynamic';
 
 // Dynamically import chart components
@@ -84,7 +87,7 @@ const calculateTotalIncomeWithRecurring = async (selectedMonth: number, selected
 };
 
 // Chart colors
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 // Calculate totals and balance based on includePending setting
 const getExpenseTotal = (expenses: Expense[], category: string, includePending: boolean) => {
@@ -98,6 +101,7 @@ export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState(1);
   
   // Current month and year
   const currentMonth = new Date().getMonth() + 1;
@@ -109,6 +113,8 @@ export default function DashboardPage() {
   
   // Data states
   const [expensesList, setExpensesList] = useState<Expense[]>([]);
+  const [incomeList, setIncomeList] = useState<Income[]>([]);
+  const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [totalIncome, setTotalIncome] = useState(0);
   const [dataLoading, setDataLoading] = useState(false);
   const [includePending, setIncludePending] = useState(true);
@@ -127,25 +133,41 @@ export default function DashboardPage() {
       setDataLoading(true);
       
       // Fetch data in parallel
-      const [incomeData, expensesData] = await Promise.all([
+      const [incomeData, expensesData, summaryData] = await Promise.all([
         getMonthlyIncome(selectedMonth, selectedYear),
-        getAllMonthlyExpenses(selectedMonth, selectedYear)
+        getAllMonthlyExpenses(selectedMonth, selectedYear),
+        getMonthlySummary(selectedMonth, selectedYear)
       ]);
       
       setExpensesList(expensesData);
+      setIncomeList(incomeData.filter(income => includePending || income.isPaid));
+      
+      if (summaryData) {
+        // Create a new object to avoid modifying the original
+        const updatedSummary = { ...summaryData };
+        
+        // Filter out pending items if includePending is false
+        if (!includePending) {
+          updatedSummary.totalFixedExpenses = updatedSummary.paidFixedExpenses ?? 0;
+          updatedSummary.totalVariableExpenses = updatedSummary.paidVariableExpenses ?? 0;
+          updatedSummary.totalSubscriptions = updatedSummary.paidSubscriptions ?? 0;
+        }
+        
+        setSummary(updatedSummary);
+      } else {
+        setSummary(null);
+      }
       
       // Calculate total income with recurring items
       const calculatedTotalIncome = await calculateTotalIncomeWithRecurring(selectedMonth, selectedYear, includePending);
       setTotalIncome(calculatedTotalIncome);
-      
-      console.log('Fetched income data:', incomeData.length, 'entries');
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setDataLoading(false);
     }
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, includePending]);
   
   // Fetch data when month/year filters change
   useEffect(() => {
@@ -157,7 +179,7 @@ export default function DashboardPage() {
   // Update calculations when includePending changes without fetching data again
   useEffect(() => {
     if (user && mounted && expensesList.length > 0) {
-      // Just recalculate income without refetching data
+      // Recalculate without refetching all data
       calculateTotalIncomeWithRecurring(selectedMonth, selectedYear, includePending)
         .then(calculatedIncome => {
           setTotalIncome(calculatedIncome);
@@ -176,12 +198,30 @@ export default function DashboardPage() {
   const totalExpenses = fixedExpenses + variableExpenses + subscriptionExpenses;
   const balance = totalIncome - totalExpenses;
   
-  // Expense breakdown data for chart
+  // Expense breakdown data for pie chart
   const expenseChartData = [
-    { name: 'Fixed', value: fixedExpenses },
-    { name: 'Variable', value: variableExpenses },
-    { name: 'Subscriptions', value: subscriptionExpenses },
+    { name: 'Fixed Expenses', value: summary ? summary.totalFixedExpenses : fixedExpenses, color: '#8884d8' },
+    { name: 'Variable Expenses', value: summary ? summary.totalVariableExpenses : variableExpenses, color: '#82ca9d' },
+    { name: 'Subscriptions', value: summary ? summary.totalSubscriptions : subscriptionExpenses, color: '#ffc658' },
   ].filter(item => item.value > 0);
+  
+  // Generate data for income vs expenses bar chart
+  const barChartData = [
+    {
+      name: `${getMonthName(selectedMonth)} ${selectedYear}`,
+      Income: totalIncome,
+      Expenses: totalExpenses,
+      Balance: balance > 0 ? balance : 0,
+      Deficit: balance < 0 ? Math.abs(balance) : 0,
+    }
+  ];
+
+  // Income breakdown data
+  const incomeChartData = incomeList.map(item => ({
+    name: item.source,
+    value: item.amount,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)]
+  }));
   
   // Format number as currency
   const formatCurrency = (value: number) => {
@@ -208,6 +248,10 @@ export default function DashboardPage() {
     setIncludePending(newValue);
     
     // No need for manual update here as the useEffect will handle it
+  };
+
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
   };
 
   // Don't render anything server-side
@@ -436,128 +480,235 @@ export default function DashboardPage() {
             </Card>
           </Box>
           
-          {/* Main Content Area */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-            {/* Expense Breakdown Chart */}
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Expense Breakdown
-              </Typography>
-              
-              {expenseChartData.length > 0 ? (
-                <Box sx={{ height: 300 }}>
-                  <Charts 
-                    type="pie" 
-                    data={expenseChartData} 
-                    colors={COLORS}
-                  />
-                </Box>
-              ) : (
-                <Box sx={{ 
-                  height: 300, 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center',
-                  bgcolor: 'action.hover',
-                  borderRadius: 1
-                }}>
-                  <Typography color="text.secondary">
-                    No expense data available for this period
+          {/* Main Content Area with Charts */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Tabs 
+              value={activeTab} 
+              onChange={handleTabChange} 
+              variant="fullWidth"
+              sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+            >
+              <Tab label="Expense Breakdown" />
+              <Tab label="Income vs Expenses" />
+              <Tab label="Income Sources" />
+            </Tabs>
+            
+            {activeTab === 0 && (
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2, textAlign: 'center' }}>
+                  Expense Distribution
+                </Typography>
+                
+                {expenseChartData.length === 0 ? (
+                  <Box sx={{ 
+                    height: 300, 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    bgcolor: 'action.hover',
+                    borderRadius: 1
+                  }}>
+                    <Typography color="text.secondary">
+                      No expense data available for this period
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ height: 400, width: '100%' }}>
+                    <Charts 
+                      type="pie" 
+                      data={expenseChartData} 
+                      colors={COLORS}
+                    />
+                  </Box>
+                )}
+                
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Summary
+                  </Typography>
+                  <Typography variant="body2">
+                    Total Fixed Expenses: ${summary ? summary.totalFixedExpenses.toFixed(2) : fixedExpenses.toFixed(2)}
+                  </Typography>
+                  <Typography variant="body2">
+                    Total Variable Expenses: ${summary ? summary.totalVariableExpenses.toFixed(2) : variableExpenses.toFixed(2)}
+                  </Typography>
+                  <Typography variant="body2">
+                    Total Subscriptions: ${summary ? summary.totalSubscriptions.toFixed(2) : subscriptionExpenses.toFixed(2)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Total Expenses: ${totalExpenses.toFixed(2)}
                   </Typography>
                 </Box>
-              )}
-            </Paper>
-            
-            {/* Financial Summary Table */}
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Financial Summary
-              </Typography>
-              
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Category</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                      <TableCell align="right">% of Budget</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Income</TableCell>
-                      <TableCell align="right">{formatCurrency(totalIncome)}</TableCell>
-                      <TableCell align="right">100%</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Fixed Expenses</TableCell>
-                      <TableCell align="right">{formatCurrency(fixedExpenses)}</TableCell>
-                      <TableCell align="right">
-                        {totalIncome > 0 ? `${(fixedExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Variable Expenses</TableCell>
-                      <TableCell align="right">{formatCurrency(variableExpenses)}</TableCell>
-                      <TableCell align="right">
-                        {totalIncome > 0 ? `${(variableExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Subscriptions</TableCell>
-                      <TableCell align="right">{formatCurrency(subscriptionExpenses)}</TableCell>
-                      <TableCell align="right">
-                        {totalIncome > 0 ? `${(subscriptionExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Total Expenses</TableCell>
-                      <TableCell align="right">{formatCurrency(totalExpenses)}</TableCell>
-                      <TableCell align="right">
-                        {totalIncome > 0 ? `${(totalExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>
-                        {balance >= 0 ? 'Surplus' : 'Deficit'}
-                      </TableCell>
-                      <TableCell 
-                        align="right" 
-                        sx={{ 
-                          fontWeight: 'bold',
-                          color: balance >= 0 ? 'success.main' : 'error.main'
-                        }}
-                      >
-                        {formatCurrency(Math.abs(balance))}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        {totalIncome > 0 ? `${Math.abs(balance) / totalIncome * 100 > 0.1 ? (Math.abs(balance) / totalIncome * 100).toFixed(1) : '<0.1'}%` : '0%'}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              
-              <Divider sx={{ my: 2 }} />
-              
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Button 
-                  variant="outlined" 
-                  onClick={() => router.push('/dashboard/income')}
-                  size="small"
-                >
-                  Manage Income
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  onClick={() => router.push('/dashboard/expenses')}
-                  size="small"
-                >
-                  Manage Expenses
-                </Button>
               </Box>
-            </Paper>
-          </Box>
+            )}
+            
+            {activeTab === 1 && (
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2, textAlign: 'center' }}>
+                  Income vs Expenses
+                </Typography>
+                <Box sx={{ height: 400, width: '100%' }}>
+                  <Charts 
+                    type="bar" 
+                    data={barChartData} 
+                    keys={['Income', 'Expenses', balance >= 0 ? 'Balance' : 'Deficit']}
+                    colors={['#8884d8', '#82ca9d', balance >= 0 ? '#ffc658' : '#ff8042']}
+                  />
+                </Box>
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Summary
+                  </Typography>
+                  <Typography variant="body2">
+                    Total Income: ${totalIncome.toFixed(2)}
+                  </Typography>
+                  <Typography variant="body2">
+                    Total Expenses: ${totalExpenses.toFixed(2)}
+                  </Typography>
+                  <Typography variant="body2" 
+                    sx={{ 
+                      mt: 1, 
+                      color: balance >= 0 ? 'success.main' : 'error.main',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {balance >= 0 ? 'Surplus' : 'Deficit'}: ${Math.abs(balance).toFixed(2)}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+            
+            {activeTab === 2 && (
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2, textAlign: 'center' }}>
+                  Income Sources
+                </Typography>
+                
+                {incomeList.length === 0 ? (
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    No income data for this period.
+                  </Alert>
+                ) : (
+                  <Box sx={{ height: 400, width: '100%' }}>
+                    <Charts 
+                      type="pie" 
+                      data={incomeChartData} 
+                      colors={COLORS}
+                    />
+                  </Box>
+                )}
+                
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Income Sources
+                  </Typography>
+                  {incomeList.map((item) => (
+                    <Box key={item.id} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2">
+                        {item.source} {item.recurring ? `(${item.frequency})` : ''}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                        ${item.amount.toFixed(2)}
+                      </Typography>
+                    </Box>
+                  ))}
+                  <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                    Total Income: ${totalIncome.toFixed(2)}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          </Paper>
+          
+          {/* Financial Summary Table */}
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Financial Summary
+            </Typography>
+            
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Category</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    <TableCell align="right">% of Budget</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>Income</TableCell>
+                    <TableCell align="right">{formatCurrency(totalIncome)}</TableCell>
+                    <TableCell align="right">100%</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Fixed Expenses</TableCell>
+                    <TableCell align="right">{formatCurrency(fixedExpenses)}</TableCell>
+                    <TableCell align="right">
+                      {totalIncome > 0 ? `${(fixedExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Variable Expenses</TableCell>
+                    <TableCell align="right">{formatCurrency(variableExpenses)}</TableCell>
+                    <TableCell align="right">
+                      {totalIncome > 0 ? `${(variableExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Subscriptions</TableCell>
+                    <TableCell align="right">{formatCurrency(subscriptionExpenses)}</TableCell>
+                    <TableCell align="right">
+                      {totalIncome > 0 ? `${(subscriptionExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Total Expenses</TableCell>
+                    <TableCell align="right">{formatCurrency(totalExpenses)}</TableCell>
+                    <TableCell align="right">
+                      {totalIncome > 0 ? `${(totalExpenses / totalIncome * 100).toFixed(1)}%` : '0%'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold' }}>
+                      {balance >= 0 ? 'Surplus' : 'Deficit'}
+                    </TableCell>
+                    <TableCell 
+                      align="right" 
+                      sx={{ 
+                        fontWeight: 'bold',
+                        color: balance >= 0 ? 'success.main' : 'error.main'
+                      }}
+                    >
+                      {formatCurrency(Math.abs(balance))}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                      {totalIncome > 0 ? `${Math.abs(balance) / totalIncome * 100 > 0.1 ? (Math.abs(balance) / totalIncome * 100).toFixed(1) : '<0.1'}%` : '0%'}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+            
+            <Divider sx={{ my: 2 }} />
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Button 
+                variant="outlined" 
+                onClick={() => router.push('/dashboard/income')}
+                size="small"
+              >
+                Manage Income
+              </Button>
+              <Button 
+                variant="outlined" 
+                onClick={() => router.push('/dashboard/expenses')}
+                size="small"
+              >
+                Manage Expenses
+              </Button>
+            </Box>
+          </Paper>
         </>
       )}
     </SidebarLayout>

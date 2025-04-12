@@ -20,6 +20,34 @@ import { auth } from './config';
 // Initialize Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
 
+// Set session cookie helper function
+export const setSessionCookie = async (user: User) => {
+  try {
+    // Get the Firebase ID token
+    const token = await user.getIdToken();
+    
+    // Store token in localStorage as a fallback for middleware
+    localStorage.setItem('firebaseToken', token);
+    
+    // Manually set a session cookie that middleware can read
+    // This simulates what would happen in a real backend with proper session cookies
+    document.cookie = `__session=${token}; path=/; max-age=86400; SameSite=Strict`;
+    
+    console.log("Session cookie set successfully");
+    return token;
+  } catch (error) {
+    console.error("Error setting session cookie:", error);
+    throw error;
+  }
+};
+
+// Clear session cookie on logout
+export const clearSessionCookie = () => {
+  localStorage.removeItem('firebaseToken');
+  document.cookie = '__session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  console.log("Session cookie cleared");
+};
+
 // Sign up with email and password
 export const signUp = async (email: string, password: string, displayName: string): Promise<User> => {
   try {
@@ -28,6 +56,8 @@ export const signUp = async (email: string, password: string, displayName: strin
     // Set the display name
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName });
+      // Set session cookie
+      await setSessionCookie(userCredential.user);
     }
     
     return userCredential.user;
@@ -43,6 +73,10 @@ export const signIn = async (email: string, password: string): Promise<User> => 
     // Set persistence to local to ensure user stays signed in
     await setPersistence(auth, browserLocalPersistence);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Set session cookie
+    await setSessionCookie(userCredential.user);
+    
     return userCredential.user;
   } catch (error) {
     console.error('Error signing in:', error);
@@ -59,6 +93,10 @@ export const signInWithGoogle = async (): Promise<User | null> => {
     // Use popup method - more reliable in complex environments
     const result = await signInWithPopup(auth, googleProvider);
     console.log("Google sign-in successful:", result.user.email);
+    
+    // Set session cookie
+    await setSessionCookie(result.user);
+    
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
@@ -71,6 +109,8 @@ export const getGoogleRedirectResult = async (): Promise<User | null> => {
   try {
     const result = await getRedirectResult(auth);
     if (result && result.user) {
+      // Set session cookie
+      await setSessionCookie(result.user);
       return result.user;
     }
     return null;
@@ -84,6 +124,8 @@ export const getGoogleRedirectResult = async (): Promise<User | null> => {
 export const logout = async (): Promise<void> => {
   try {
     await signOut(auth);
+    // Clear session cookie
+    clearSessionCookie();
   } catch (error) {
     console.error('Error signing out:', error);
     throw error;

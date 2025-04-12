@@ -1,38 +1,80 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import ClientAuthProvider from "@/context/ClientAuthProvider";
-import ClientThemeProvider from "@/context/ClientThemeProvider";
+'use client';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+import { Roboto } from 'next/font/google';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import ClientAuthProvider from '@/context/ClientAuthProvider';
+import { useState, useEffect } from 'react';
+import { lightTheme, darkTheme } from '../components/theme';
+
+const roboto = Roboto({
+  weight: ['300', '400', '500', '700'],
+  subsets: ['latin'],
+  display: 'swap',
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Metadata needs to be in a separate layout file or handled differently with Next.js App Router
+// since you can't export metadata from a client component
 
-export const metadata: Metadata = {
-  title: "Budget This",
-  description: "A budget management application",
-};
-
-// This layout purposely does not use the 'use client' directive
-// as it needs to run on the server (static metadata)
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Set up theme preference on client side only to avoid hydration mismatch
+  useEffect(() => {
+    // Check system theme preference first, then local storage
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const storedMode = localStorage.getItem('themeMode');
+    
+    if (storedMode) {
+      setIsDarkMode(storedMode === 'dark');
+    } else {
+      setIsDarkMode(prefersDark);
+    }
+    
+    // Check for existing auth token and ensure cookie is set
+    const storedToken = localStorage.getItem('firebaseToken');
+    if (storedToken) {
+      console.log("Root: Found stored token, setting session cookie");
+      document.cookie = `__session=${storedToken}; path=/; max-age=86400; SameSite=Strict`;
+    }
+    
+    setMounted(true);
+  }, []);
+
+  // Toggle theme function
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+    localStorage.setItem('themeMode', !isDarkMode ? 'dark' : 'light');
+  };
+
+  // Add toggleTheme to theme object
+  const theme = {
+    ...(isDarkMode ? darkTheme : lightTheme),
+    toggleTheme,
+  };
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return <html lang="en" className={roboto.className}><body></body></html>;
+  }
+
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={roboto.className}>
+      <head>
+        <title>Budget This</title>
+        <meta name="description" content="A budget management application" />
+      </head>
+      <body>
         <ClientAuthProvider>
-          <ClientThemeProvider>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
             {children}
-          </ClientThemeProvider>
+          </ThemeProvider>
         </ClientAuthProvider>
       </body>
     </html>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Box, Typography, Button, CircularProgress, Container } from '@mui/material';
@@ -8,9 +8,21 @@ import { Box, Typography, Button, CircularProgress, Container } from '@mui/mater
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [checkingToken, setCheckingToken] = useState(true);
 
   useEffect(() => {
-    // Redirect to login if user is not authenticated
+    // First, check for existing token
+    const storedToken = typeof window !== 'undefined' ? localStorage.getItem('firebaseToken') : null;
+    
+    if (storedToken) {
+      console.log("Found token in home page, setting cookie");
+      // Set the cookie and continue authentication check
+      document.cookie = `__session=${storedToken}; path=/; max-age=86400; SameSite=Strict`;
+    }
+    
+    setCheckingToken(false);
+    
+    // Redirect based on auth state
     if (!loading && !user) {
       router.push('/auth/login');
     } else if (!loading && user) {
@@ -26,7 +38,7 @@ export default function Home() {
     router.push('/dashboard');
   };
 
-  if (loading) {
+  if (loading || checkingToken) {
     return (
       <Box
         sx={{

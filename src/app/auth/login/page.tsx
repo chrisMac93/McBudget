@@ -23,6 +23,14 @@ export default function LoginPage() {
     if (errorMessage) {
       console.error("Redirect error detected:", errorMessage);
     }
+    
+    // Check for existing Firebase token in localStorage
+    const storedToken = localStorage.getItem('firebaseToken');
+    if (storedToken) {
+      console.log("Found existing token, setting session cookie");
+      // Set the cookie from the stored token to ensure middleware can read it
+      document.cookie = `__session=${storedToken}; path=/; max-age=86400; SameSite=Strict`;
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

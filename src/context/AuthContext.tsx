@@ -147,6 +147,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // User is authenticated and allowed
           setUser(authUser);
           
+          // Ensure session cookie is set
+          authUser.getIdToken().then(token => {
+            localStorage.setItem('firebaseToken', token);
+            document.cookie = `__session=${token}; path=/; max-age=86400; SameSite=Strict`;
+          }).catch(error => {
+            console.error("Error setting token in auth state change:", error);
+          });
+          
           // If we're on an auth page, redirect to dashboard
           const path = window.location.pathname;
           if (path.includes('/auth/') && !path.includes('/auth/reset-password')) {
@@ -156,6 +164,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         // No authenticated user
         setUser(null);
+        
+        // Ensure cookie is cleared
+        localStorage.removeItem('firebaseToken');
+        document.cookie = '__session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        
+        // If the user is on a protected page, redirect to login
+        const path = window.location.pathname;
+        if (path.startsWith('/dashboard') || path === '/') {
+          router.push('/auth/login');
+        }
       }
       
       setLoading(false);

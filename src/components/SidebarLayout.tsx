@@ -25,7 +25,6 @@ import {
   Dashboard as DashboardIcon,
   MonetizationOn as IncomeIcon,
   ShoppingCart as ExpenseIcon,
-  BarChart as ChartIcon,
   Settings as SettingsIcon,
   Logout as LogoutIcon
 } from '@mui/icons-material';
@@ -56,7 +55,6 @@ export default function SidebarLayout({ children, title }: SidebarLayoutProps) {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Income', icon: <IncomeIcon />, path: '/dashboard/income' },
     { text: 'Expenses', icon: <ExpenseIcon />, path: '/dashboard/expenses' },
-    { text: 'Charts', icon: <ChartIcon />, path: '/dashboard/charts' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/dashboard/settings' },
   ];
 
