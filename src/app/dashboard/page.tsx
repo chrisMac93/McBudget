@@ -145,14 +145,28 @@ export default function DashboardPage() {
     } finally {
       setDataLoading(false);
     }
-  }, [selectedMonth, selectedYear, includePending]);
+  }, [selectedMonth, selectedYear]);
   
-  // Fetch data when filters change
+  // Fetch data when month/year filters change
   useEffect(() => {
     if (user && mounted) {
       fetchData();
     }
   }, [fetchData, user, mounted]);
+  
+  // Update calculations when includePending changes without fetching data again
+  useEffect(() => {
+    if (user && mounted && expensesList.length > 0) {
+      // Just recalculate income without refetching data
+      calculateTotalIncomeWithRecurring(selectedMonth, selectedYear, includePending)
+        .then(calculatedIncome => {
+          setTotalIncome(calculatedIncome);
+        })
+        .catch(error => {
+          console.error('Error recalculating income:', error);
+        });
+    }
+  }, [includePending, user, mounted, selectedMonth, selectedYear, expensesList.length]);
   
   // Calculate totals using the helper function
   const fixedExpenses = getExpenseTotal(expensesList, 'fixed', includePending);
@@ -187,7 +201,13 @@ export default function DashboardPage() {
   };
 
   const handleTogglePending = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setIncludePending(event.target.checked);
+    // Don't use event.preventDefault() as it might interfere with the Switch component
+    const newValue = event.target.checked;
+    
+    // Update the state
+    setIncludePending(newValue);
+    
+    // No need for manual update here as the useEffect will handle it
   };
 
   // Don't render anything server-side
@@ -260,7 +280,7 @@ export default function DashboardPage() {
             label={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Typography sx={{ mr: 0.5 }}>Include Pending</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" sx={{ minWidth: 250 }}>
                   ({includePending ? 'Showing all transactions' : 'Showing only paid/received transactions'})
                 </Typography>
               </Box>
