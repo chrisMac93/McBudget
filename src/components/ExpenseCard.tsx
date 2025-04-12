@@ -9,10 +9,25 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  useTheme
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
-import { MoreVert as MoreVertIcon } from '@mui/icons-material';
-import { Expense } from '@/firebase/services';
+import { 
+  MoreVert as MoreVertIcon,
+  Delete as DeleteIcon,
+  DeleteSweep as DeleteSweepIcon,
+  Edit as EditIcon,
+  EventAvailable as EventAvailableIcon,
+  EventBusy as EventBusyIcon
+} from '@mui/icons-material';
+import { Expense, bulkDeleteRecurringExpenses } from '@/firebase/services';
 import { Timestamp } from 'firebase/firestore';
 
 interface ExpenseCardProps {
@@ -24,6 +39,8 @@ interface ExpenseCardProps {
 
 const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, onEdit, onStatusChange, onDelete }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [deleteType, setDeleteType] = useState<'single' | 'future' | 'all'>('single');
   const theme = useTheme();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -32,6 +49,37 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, onEdit, onStatusChan
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleDeleteClick = (type: 'single' | 'future' | 'all') => {
+    setDeleteType(type);
+    setConfirmDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      if (deleteType === 'single' && expense.id) {
+        // Standard single delete
+        onDelete(expense.id);
+      } else if ((deleteType === 'future' || deleteType === 'all') && expense.recurring) {
+        // Bulk delete - either from current month or all occurrences
+        await bulkDeleteRecurringExpenses(
+          expense,
+          deleteType === 'all',
+          deleteType === 'future' ? expense.month : undefined,
+          deleteType === 'future' ? expense.year : undefined
+        );
+        
+        // Notify user of success through the parent component callback
+        if (expense.id) {
+          onDelete(expense.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting expenses:', error);
+    }
+    setConfirmDialogOpen(false);
   };
 
   const formatCurrency = (amount: number) => {
@@ -68,10 +116,11 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, onEdit, onStatusChan
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ maxWidth: '70%' }}>
             <Typography variant="h6" component="div" noWrap>
-              {expense.description}
+              {expense.description || expense.subcategory}
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 1 }} noWrap>
               {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}
+              {expense.recurring && ' • Recurring'}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -114,25 +163,75 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, onEdit, onStatusChan
           onEdit(expense);
           handleMenuClose();
         }}>
-          Edit
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Edit</ListItemText>
         </MenuItem>
+        
         <MenuItem onClick={() => {
           if (expense.id) {
             onStatusChange(expense.id, expense.isPaid ? 'pending' : 'paid');
             handleMenuClose();
           }
         }}>
-          Mark as {expense.isPaid ? 'Pending' : 'Paid'}
+          <ListItemIcon>
+            {expense.isPaid ? <EventBusyIcon fontSize="small" /> : <EventAvailableIcon fontSize="small" />}
+          </ListItemIcon>
+          <ListItemText>Mark as {expense.isPaid ? 'Pending' : 'Paid'}</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => {
-          if (expense.id) {
-            onDelete(expense.id);
-            handleMenuClose();
-          }
-        }}>
-          Delete
+        
+        <MenuItem onClick={() => handleDeleteClick('single')}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Delete</ListItemText>
         </MenuItem>
+        
+        {expense.recurring ? [
+          <MenuItem key="future" onClick={() => handleDeleteClick('future')}>
+            <ListItemIcon>
+              <DeleteSweepIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Delete All Future Occurrences</ListItemText>
+          </MenuItem>,
+            
+          <MenuItem key="all" onClick={() => handleDeleteClick('all')}>
+            <ListItemIcon>
+              <DeleteSweepIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText>Delete All Occurrences</ListItemText>
+          </MenuItem>
+        ] : null}
       </Menu>
+
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+      >
+        <DialogTitle>
+          {deleteType === 'single' ? 'Delete Expense' : 
+           deleteType === 'future' ? 'Delete Future Occurrences' : 
+           'Delete All Occurrences'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteType === 'single' && 'Are you sure you want to delete this expense?'}
+            {deleteType === 'future' && 'This will delete this expense and all future occurrences. Are you sure?'}
+            {deleteType === 'all' && 'This will delete ALL occurrences of this recurring expense. Are you sure?'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleConfirmDelete} 
+            color="error" 
+            variant={deleteType === 'all' ? 'contained' : 'text'}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };

@@ -46,6 +46,7 @@ export interface Expense extends BaseModel {
   year: number;
   description?: string;
   dueDate?: Date | Timestamp;
+  dueDayOfMonth?: number; // Day of month when payment is due (for recurring expenses)
   recurring: boolean;
   startDate?: Date | Timestamp;
   endDate?: Date | Timestamp;
@@ -765,6 +766,10 @@ export const createRecurringExpense = async (
     const batch = writeBatch(db);
     const createdIds: string[] = [];
     
+    // Current date for determining isPaid status
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to midnight for accurate comparison
+    
     // Default end date to end of current year if not specified
     if (!endMonth || !endYear) {
       endMonth = 12;
@@ -785,13 +790,39 @@ export const createRecurringExpense = async (
     
     // First create entry for the current month explicitly to ensure it's not skipped
     const currentMonthDocRef = doc(getExpensesCollection());
+    
+    // Calculate proper due date for this month using dueDayOfMonth if provided
+    let dueDate = expenseTemplate.dueDate;
+    if (expenseTemplate.dueDayOfMonth) {
+      // Create a date using the dueDayOfMonth for the current month/year
+      // Handle months with fewer days by using the last day of the month
+      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+      const actualDueDay = Math.min(expenseTemplate.dueDayOfMonth, daysInMonth);
+      dueDate = new Date(currentYear, currentMonth - 1, actualDueDay);
+      
+      // Convert to Timestamp if necessary
+      if (dueDate instanceof Date) {
+        dueDate = Timestamp.fromDate(dueDate);
+      }
+    }
+    
+    // Set isPaid based on due date vs current date
+    let isPaid = expenseTemplate.isPaid;
+    if (dueDate) {
+      const dueDateObj = dueDate instanceof Date ? dueDate : dueDate.toDate();
+      isPaid = dueDateObj <= today;
+    }
+    
     const currentMonthData: Omit<Expense, 'id'> = {
       ...expenseTemplate,
       userId,
       month: currentMonth,
       year: currentYear,
+      dueDate,
+      isPaid,
       createdAt: Timestamp.now()
     };
+    
     batch.set(currentMonthDocRef, currentMonthData);
     createdIds.push(currentMonthDocRef.id);
     
@@ -820,12 +851,36 @@ export const createRecurringExpense = async (
       // Create new expense document reference
       const docRef = doc(getExpensesCollection());
       
+      // Calculate proper due date for this period using dueDayOfMonth if provided
+      let periodDueDate = expenseTemplate.dueDate;
+      if (expenseTemplate.dueDayOfMonth) {
+        // Create a date using the dueDayOfMonth for the current month/year
+        // Handle months with fewer days by using the last day of the month
+        const daysInMonth = new Date(currentYear, Math.floor(currentMonth), 0).getDate();
+        const actualDueDay = Math.min(expenseTemplate.dueDayOfMonth, daysInMonth);
+        periodDueDate = new Date(currentYear, Math.floor(currentMonth) - 1, actualDueDay);
+        
+        // Convert to Timestamp if necessary
+        if (periodDueDate instanceof Date) {
+          periodDueDate = Timestamp.fromDate(periodDueDate);
+        }
+      }
+      
+      // Set isPaid based on due date vs current date for each month
+      let monthIsPaid = false;
+      if (periodDueDate) {
+        const dueDateObj = periodDueDate instanceof Date ? periodDueDate : periodDueDate.toDate();
+        monthIsPaid = dueDateObj <= today;
+      }
+      
       // Prepare data
       const expenseData: Omit<Expense, 'id'> = {
         ...expenseTemplate,
         userId,
         month: Math.floor(currentMonth), // Ensure whole month number
         year: currentYear,
+        dueDate: periodDueDate,
+        isPaid: monthIsPaid,
         createdAt: Timestamp.now()
       };
       
@@ -855,6 +910,76 @@ export const createRecurringExpense = async (
     return createdIds;
   } catch (error) {
     console.error('Error creating recurring expense:', error);
+    throw error;
+  }
+};
+
+// Delete multiple recurring expense entries based on common properties
+export const bulkDeleteRecurringExpenses = async (
+  templateExpense: Expense,
+  deleteAll: boolean = false,
+  fromMonth?: number,
+  fromYear?: number
+): Promise<number> => {
+  try {
+    const userId = getCurrentUserId();
+    const batch = writeBatch(db);
+    let deleteCount = 0;
+    
+    // Create a query to find all similar recurring expenses
+    const q = query(
+      getExpensesCollection(),
+      where('userId', '==', userId),
+      where('category', '==', templateExpense.category),
+      where('subcategory', '==', templateExpense.subcategory),
+      where('recurring', '==', true)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const matchingExpenses: Expense[] = [];
+    
+    // First gather all potential matches
+    querySnapshot.forEach((doc) => {
+      const expense = { ...doc.data(), id: doc.id } as Expense;
+      
+      // Check if this expense matches our template (same amount, frequency, dueDayOfMonth)
+      if (
+        expense.amount === templateExpense.amount &&
+        expense.frequency === templateExpense.frequency &&
+        expense.dueDayOfMonth === templateExpense.dueDayOfMonth
+      ) {
+        matchingExpenses.push(expense);
+      }
+    });
+    
+    // Sort expenses by date for processing
+    matchingExpenses.sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+    
+    // If deleteAll is true, delete all matching expenses
+    // Otherwise, delete only expenses from the specified month/year onwards
+    for (const expense of matchingExpenses) {
+      if (
+        deleteAll || 
+        (expense.year > (fromYear || 0)) || 
+        (expense.year === fromYear && expense.month >= (fromMonth || 0))
+      ) {
+        if (expense.id) {
+          batch.delete(doc(getExpensesCollection(), expense.id));
+          deleteCount++;
+        }
+      }
+    }
+    
+    if (deleteCount > 0) {
+      await batch.commit();
+    }
+    
+    return deleteCount;
+  } catch (error) {
+    console.error('Error bulk deleting recurring expenses:', error);
     throw error;
   }
 }; 

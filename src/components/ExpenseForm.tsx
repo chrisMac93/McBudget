@@ -23,7 +23,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Add as AddIcon } from '@mui/icons-material';
-import { addOrUpdateExpense, createRecurringExpense } from '@/firebase/services';
+import { addOrUpdateExpense, createRecurringExpense, Expense } from '@/firebase/services';
 
 // Helper to get month name
 const getMonthName = (month: number): string => {
@@ -89,8 +89,8 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
   const today = new Date();
   
   const [formData, setFormData] = useState({
-    category: 'variable' as ExpenseCategory,
-    subcategory: 'Groceries',
+    category: 'fixed' as ExpenseCategory,
+    subcategory: 'Mortgage/Rent',
     amount: '',
     month: currentMonth,
     year: currentYear,
@@ -101,7 +101,8 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
     startDate: today,
     endDate: new Date(currentYear, 11, 31), // Default to end of year
     dueDate: today,
-    expectedDate: today
+    expectedDate: today,
+    dueDayOfMonth: today.getDate() // Default to current day of month
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -117,9 +118,12 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
           : initialExpense.dueDate.toDate()
         : today;
         
+      // Extract day of month from the due date
+      const dueDayOfMonth = dueDate.getDate();
+        
       setFormData({
-        category: initialExpense.category || 'variable',
-        subcategory: initialExpense.subcategory || subcategories[initialExpense.category || 'variable'][0],
+        category: initialExpense.category || 'fixed',
+        subcategory: initialExpense.subcategory || subcategories[initialExpense.category || 'fixed'][0],
         amount: String(initialExpense.amount) || '',
         month: initialExpense.month || currentMonth,
         year: initialExpense.year || currentYear,
@@ -138,16 +142,17 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
             ? initialExpense.endDate.toDate() 
             : new Date(currentYear, 11, 31),
         dueDate,
-        expectedDate: dueDate
+        expectedDate: dueDate,
+        dueDayOfMonth
       });
     }
-  }, [initialExpense, currentMonth, currentYear]);
+  }, [initialExpense, currentMonth, currentYear, today]);
   
   // Function to reset the form
   const resetForm = () => {
     setFormData({
-      category: 'variable' as ExpenseCategory,
-      subcategory: 'Groceries',
+      category: 'fixed' as ExpenseCategory,
+      subcategory: 'Mortgage/Rent',
       amount: '',
       month: currentMonth,
       year: currentYear,
@@ -158,7 +163,8 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
       startDate: today,
       endDate: new Date(currentYear, 11, 31),
       dueDate: today,
-      expectedDate: today
+      expectedDate: today,
+      dueDayOfMonth: today.getDate()
     });
   };
   
@@ -179,6 +185,10 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
       
       if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
         newErrors.endDate = 'End date must be after start date';
+      }
+      
+      if (formData.dueDayOfMonth < 1 || formData.dueDayOfMonth > 31) {
+        newErrors.dueDayOfMonth = 'Due day must be between 1 and 31';
       }
     }
     
@@ -224,8 +234,19 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
   const handleDateChange = (date: Date | null) => {
     if (date) {
       const today = new Date();
-      const isPaid = date < today;
-      setFormData(prev => ({ ...prev, expectedDate: date, isPaid }));
+      today.setHours(0, 0, 0, 0); // Reset time to midnight for accurate comparison
+      const selectedDate = new Date(date);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      // If the selected date is today or before, it's paid. If it's in the future, it's pending
+      const isPaid = selectedDate <= today;
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        expectedDate: date, 
+        isPaid,
+        dueDayOfMonth: date.getDate() // Also update dueDayOfMonth based on selected date
+      }));
     }
   };
   
@@ -244,6 +265,15 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
         const endMonth = formData.endDate.getMonth() + 1;
         const endYear = formData.endDate.getFullYear();
         
+        // For recurring expenses, calculate a due date based on the dueDayOfMonth for each month
+        const today = new Date();
+        
+        // Make sure dueDayOfMonth is valid (between 1-31)
+        const validDueDay = Math.max(1, Math.min(31, formData.dueDayOfMonth));
+        
+        // Create a placeholder date with the dueDayOfMonth
+        const dueDate = new Date(today.getFullYear(), today.getMonth(), validDueDay);
+        
         // Create template expense without month/year
         const expenseTemplate = {
           category: formData.category,
@@ -255,7 +285,8 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
           isPaid: formData.isPaid,
           startDate: formData.startDate,
           endDate: formData.endDate,
-          dueDate: formData.expectedDate
+          dueDate: dueDate,
+          dueDayOfMonth: validDueDay
         };
         
         if (initialExpense?.id) {
@@ -270,7 +301,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
           await createRecurringExpense(expenseTemplate, startMonth, startYear, endMonth, endYear);
         }
       } else {
-        // Handle single expense
+        // Handle single expense - use the expectedDate directly
         await addOrUpdateExpense({
           category: formData.category,
           subcategory: formData.subcategory,
@@ -375,14 +406,15 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
             
             <Box>
               <DatePicker
-                label="Expected Payment Date"
+                label="Payment Due Date"
                 value={formData.expectedDate}
                 onChange={handleDateChange}
                 slotProps={{
                   textField: {
                     fullWidth: true,
                     required: true,
-                    size: "small"
+                    size: "small",
+                    helperText: "Automatically sets paid/pending status based on this date"
                   }
                 }}
               />
@@ -399,8 +431,13 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
               />
             }
             label="Recurring Expense"
-            sx={{ mb: 2, mt: 1 }}
+            sx={{ mb: 1, mt: 1 }}
           />
+          
+          <Box sx={{ mb: 2, mt: 0, fontSize: '0.875rem', color: 'text.secondary', fontStyle: 'italic' }}>
+            Note: Expenses are automatically marked as "Paid" when their due date is today or in the past, 
+            and "Pending" when the due date is in the future.
+          </Box>
           
           {formData.recurring ? (
             <Box sx={{ mb: 2 }}>
@@ -425,16 +462,25 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
                 </Box>
                 
                 <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox 
-                        checked={formData.isPaid} 
-                        onChange={handleCheckboxChange} 
-                        name="isPaid" 
-                        color="success"
-                      />
-                    }
-                    label="Already Paid"
+                  <TextField
+                    fullWidth
+                    label="Due Day of Month"
+                    name="dueDayOfMonth"
+                    type="number"
+                    value={formData.dueDayOfMonth}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value > 0 && value <= 31) {
+                        setFormData(prev => ({ ...prev, dueDayOfMonth: value }));
+                      }
+                    }}
+                    InputProps={{
+                      inputProps: { min: 1, max: 31 },
+                      sx: { borderRadius: 2 }
+                    }}
+                    helperText={errors.dueDayOfMonth || "Day of month when payment is due"}
+                    size="small"
+                    error={!!errors.dueDayOfMonth}
                   />
                 </Box>
               </Box>
@@ -453,7 +499,9 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
                       textField: {
                         fullWidth: true,
                         required: true,
-                        size: "small"
+                        size: "small",
+                        error: !!errors.startDate,
+                        helperText: errors.startDate || undefined
                       }
                     }}
                   />
@@ -472,7 +520,9 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
                       textField: {
                         fullWidth: true,
                         required: true,
-                        size: "small"
+                        size: "small",
+                        error: !!errors.endDate,
+                        helperText: errors.endDate || undefined
                       }
                     }}
                   />
