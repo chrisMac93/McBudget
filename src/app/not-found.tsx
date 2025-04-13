@@ -27,7 +27,7 @@ export default function NotFound() {
           Page Not Found
         </Typography>
         <Typography variant="body1" sx={{ mb: 4, maxWidth: '80%' }}>
-          The page you are looking for doesn't exist or has been moved.
+          The page you are looking for doesn&apos;t exist or has been moved.
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button 

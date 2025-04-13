@@ -1,81 +1,75 @@
 # Budget This
 
-A budget management application built with Next.js, Firebase, and Material UI.
+A comprehensive personal budgeting and expense tracking application with Progressive Web App (PWA) capabilities.
 
 ## Features
 
-- User authentication (sign up, login, logout)
-- Add income and expense transactions
-- View transaction history
-- Delete transactions
-- Categorize transactions
-- Responsive UI with Material UI
+- Track monthly income and expenses
+- Categorize expenses (fixed, variable, subscription)
+- View financial summaries and analytics
+- Progressive Web App (PWA) for offline access
+- User authentication with Firebase
+- Data sharing between authorized users
 
 ## Tech Stack
 
-- Next.js 15 with App Router
-- Firebase Authentication
-- Firebase Firestore
-- Material UI
+- Next.js 15
+- React 19
+- Material UI 7
+- Firebase (Authentication, Firestore)
 - TypeScript
+- PWA (Service Workers, Manifest)
 
-## Project Structure
-
-```
-src/
-├── app/                   # Next.js App Router
-│   ├── auth/              # Authentication pages
-│   │   ├── login/         # Login page
-│   │   └── signup/        # Signup page
-│   ├── dashboard/         # Dashboard page for managing budget
-│   ├── layout.tsx         # Root layout component
-│   └── page.tsx           # Home page (redirects to login/dashboard)
-├── components/            # Reusable components
-│   ├── TransactionForm.tsx    # Form for adding transactions
-│   └── TransactionList.tsx    # List of transactions
-├── context/               # React context
-│   ├── AuthContext.tsx    # Authentication context
-│   └── ClientAuthProvider.tsx # Client wrapper for AuthContext
-└── firebase/              # Firebase configuration and services
-    ├── auth.ts            # Authentication service
-    ├── config.ts          # Firebase initialization
-    └── services.ts        # Firestore CRUD operations
-```
-
-## Setup Instructions
+## Development Setup
 
 1. Clone the repository
-2. Install dependencies:
+2. Copy `.env.example` to `.env.local` and add your Firebase configuration
+3. Install dependencies:
    ```
    npm install
    ```
-3. Set up Firebase:
-   - Create a Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
-   - Enable Authentication with Email/Password
-   - Create a Firestore database
-   - Create a web app in the Firebase project settings
-   - Copy the Firebase configuration to `.env.local` file:
-     ```
-     NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
-     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
-     NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-     NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
-     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
-     NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your-measurement-id
-     ```
-
 4. Run the development server:
    ```
    npm run dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Environment Variables
+
+The following environment variables are required:
+
+```
+# Firebase configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+
+# User Authorization
+NEXT_PUBLIC_ALLOWED_EMAILS=
+
+# Primary User Configuration
+NEXT_PUBLIC_PRIMARY_USER_EMAIL=
+NEXT_PUBLIC_PRIMARY_USER_ID=
+```
 
 ## Deployment
 
-This project can be deployed with Vercel. Make sure to configure the environment variables in the Vercel project settings.
+This application is configured for deployment on Vercel:
+
+1. Connect your GitHub repository to Vercel
+2. Add all environment variables in the Vercel dashboard
+3. Deploy
+
+## PWA Features
+
+- Installable on desktop and mobile devices
+- Offline access to previously loaded data
+- Custom offline fallback page
+- Background synchronization when network is restored
 
 ## License
 
-This project is licensed under the MIT License.
+MIT

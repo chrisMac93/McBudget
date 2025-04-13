@@ -395,8 +395,8 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
           />
           
           <Box sx={{ mb: 2, mt: 0, fontSize: '0.875rem', color: 'text.secondary', fontStyle: 'italic' }}>
-            Note: Expenses are automatically marked as "Paid" when their due date is today or in the past, 
-            and "Pending" when the due date is in the future.
+            Note: Expenses are automatically marked as &quot;Paid&quot; when their due date is today or in the past, 
+            and &quot;Pending&quot; when the due date is in the future.
           </Box>
           
           {formData.recurring ? (
