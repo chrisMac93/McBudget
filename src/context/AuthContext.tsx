@@ -155,6 +155,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.error("Error setting token in auth state change:", error);
           });
           
+          // Check if this is the primary user and log their UID for easy configuration
+          const primaryUserEmail = process.env.NEXT_PUBLIC_PRIMARY_USER_EMAIL;
+          if (authUser.email === primaryUserEmail) {
+            console.log('─────────────────────────────────────────────────────');
+            console.log('PRIMARY USER UID (copy this to .env.local):');
+            console.log(authUser.uid);
+            console.log('─────────────────────────────────────────────────────');
+          }
+          
           // If we're on an auth page, redirect to dashboard
           const path = window.location.pathname;
           if (path.includes('/auth/') && !path.includes('/auth/reset-password')) {

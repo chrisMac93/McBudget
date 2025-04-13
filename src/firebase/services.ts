@@ -15,6 +15,14 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './config';
 
+// Flag to track if we're accessing shared data
+let isAccessingSharedData = false;
+
+// Function to check if we're accessing shared data
+export const isUsingSharedData = (): boolean => {
+  return isAccessingSharedData;
+};
+
 // Base types
 interface BaseModel {
   id?: string;
@@ -85,6 +93,21 @@ export interface MonthlySummary extends BaseModel {
 const getCurrentUserId = (): string => {
   const user = auth.currentUser;
   if (!user) throw new Error('User not authenticated');
+  
+  // Get the primary user's email and ID from env variables
+  const primaryUserEmail = process.env.NEXT_PUBLIC_PRIMARY_USER_EMAIL;
+  const primaryUserId = process.env.NEXT_PUBLIC_PRIMARY_USER_ID;
+  
+  // If the user is not the primary user (based on email) and we have a primary user ID configured,
+  // use the primary user's ID for data access to enable sharing
+  if (user.email !== primaryUserEmail && primaryUserId) {
+    console.log(`Using primary user ID (${primaryUserId.substring(0, 6)}...) for data access instead of current user`);
+    isAccessingSharedData = true;
+    return primaryUserId;
+  }
+  
+  // If the user is primary or we don't have sharing configured, use their own ID
+  isAccessingSharedData = false;
   return user.uid;
 };
 

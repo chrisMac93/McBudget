@@ -34,7 +34,7 @@ import {
   Wallet as WalletIcon,
   TrendingUp as IncomeIcon,
   TrendingDown as ExpenseIcon,
-  AccountBalance as BalanceIcon,
+  AccountBalance as BalanceIcon
 } from '@mui/icons-material';
 import SidebarLayout from '@/components/SidebarLayout';
 import { getMonthlyIncome, getAllMonthlyExpenses, getMonthlySummary, Expense, Income, MonthlySummary } from '@/firebase/services';
@@ -125,12 +125,21 @@ export default function DashboardPage() {
     // Redirect if not authenticated
     if (!loading && !user) {
       router.push('/auth/login');
+    } else if (user) {
+      // Log user info for debugging data access
+      console.log(`Logged in as: ${user.email}`);
+      console.log(`User UID: ${user.uid}`);
     }
   }, [user, loading, router]);
   
   const fetchData = useCallback(async () => {
     try {
       setDataLoading(true);
+      
+      // Debug data access - we need to import this function
+      console.log('─────────────────────────────────────────────────────');
+      console.log(`Loading data - this may use the primary user's ID for data access`);
+      console.log('─────────────────────────────────────────────────────');
       
       // Fetch data in parallel
       const [incomeData, expensesData, summaryData] = await Promise.all([
