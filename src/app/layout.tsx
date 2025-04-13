@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import ClientAuthProvider from '@/context/ClientAuthProvider';
 import { useState, useEffect } from 'react';
 import { lightTheme, darkTheme } from '../components/theme';
+import { registerServiceWorker } from '@/utils/register-sw';
 
 const roboto = Roboto({
   weight: ['300', '400', '500', '700'],
@@ -43,6 +44,9 @@ export default function RootLayout({
       document.cookie = `__session=${storedToken}; path=/; max-age=86400; SameSite=Strict`;
     }
     
+    // Register service worker for PWA
+    registerServiceWorker();
+    
     setMounted(true);
   }, []);
 
@@ -68,6 +72,11 @@ export default function RootLayout({
       <head>
         <title>Budget This</title>
         <meta name="description" content="A budget management application" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="theme-color" content="#1976d2" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body>
         <ClientAuthProvider>

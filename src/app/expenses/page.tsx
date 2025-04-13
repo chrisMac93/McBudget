@@ -12,9 +12,9 @@ import {
   Button
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { ExpenseForm } from '@/components/ExpenseForm';
-import { ExpenseList } from '@/components/ExpenseList';
-import { Expense, getMonthlyExpenses } from '@/firebase/services';
+import ExpenseForm from '@/components/ExpenseForm';
+import ExpenseList from '@/components/ExpenseList';
+import { Expense, getAllMonthlyExpenses, deleteExpense } from '@/firebase/services';
 import { useAuth } from '@/context/AuthContext';
 
 interface TabPanelProps {
@@ -47,7 +47,7 @@ export default function ExpensesPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [initialExpense, setInitialExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const theme = useTheme();
@@ -58,7 +58,7 @@ export default function ExpensesPage() {
     try {
       setLoading(true);
       const currentDate = new Date();
-      const monthlyExpenses = await getMonthlyExpenses(
+      const monthlyExpenses = await getAllMonthlyExpenses(
         currentDate.getMonth() + 1,
         currentDate.getFullYear()
       );
@@ -79,14 +79,31 @@ export default function ExpensesPage() {
   };
 
   const handleEditExpense = (expense: Expense) => {
-    setEditingExpense(expense);
+    setInitialExpense(expense);
     setShowForm(true);
   };
 
-  const handleFormClose = () => {
+  const handleFormSuccess = () => {
     setShowForm(false);
-    setEditingExpense(null);
+    setInitialExpense(null);
     fetchExpenses();
+  };
+
+  const handleStatusChange = (id: string, status: 'paid' | 'pending') => {
+    setExpenses(prevExpenses => 
+      prevExpenses.map(expense => 
+        expense.id === id ? { ...expense, isPaid: status === 'paid' } : expense
+      )
+    );
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      await deleteExpense(id);
+      fetchExpenses();
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+    }
   };
 
   return (
@@ -146,29 +163,37 @@ export default function ExpensesPage() {
 
         <TabPanel value={activeTab} index={0}>
           <ExpenseList 
-            expenses={expenses} 
+            expenses={expenses}
             onEdit={handleEditExpense}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDeleteExpense}
             loading={loading}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
           <ExpenseList 
-            expenses={expenses.filter(expense => expense.category === 'fixed')} 
+            expenses={expenses.filter(expense => expense.category === 'fixed')}
             onEdit={handleEditExpense}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDeleteExpense}
             loading={loading}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
           <ExpenseList 
-            expenses={expenses.filter(expense => expense.category === 'variable')} 
+            expenses={expenses.filter(expense => expense.category === 'variable')}
             onEdit={handleEditExpense}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDeleteExpense}
             loading={loading}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>
           <ExpenseList 
-            expenses={expenses.filter(expense => expense.category === 'subscription')} 
+            expenses={expenses.filter(expense => expense.category === 'subscription')}
             onEdit={handleEditExpense}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDeleteExpense}
             loading={loading}
           />
         </TabPanel>
@@ -176,8 +201,8 @@ export default function ExpensesPage() {
 
       {showForm && (
         <ExpenseForm
-          onClose={handleFormClose}
-          editingExpense={editingExpense}
+          onSuccess={handleFormSuccess}
+          initialExpense={initialExpense}
         />
       )}
     </Box>

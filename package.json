@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-icons": "node generate-icons.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -28,6 +29,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
+    "next-pwa": "^5.6.0",
+    "sharp": "^0.34.1",
     "typescript": "^5"
   }
 }

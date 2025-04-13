@@ -30,6 +30,10 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
+import dynamic from 'next/dynamic';
+
+// Dynamically import PWA install prompt to avoid SSR issues
+const PWAInstallPrompt = dynamic(() => import('./PWAInstallPrompt'), { ssr: false });
 
 const drawerWidth = 240;
 
@@ -199,6 +203,8 @@ export default function SidebarLayout({ children, title }: SidebarLayoutProps) {
         <Toolbar />
         {children}
       </Box>
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </Box>
   );
 } 
