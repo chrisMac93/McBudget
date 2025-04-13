@@ -116,7 +116,7 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, onEdit, onStatusChan
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ maxWidth: '70%' }}>
             <Typography variant="h6" component="div" noWrap>
-              {expense.description || expense.subcategory}
+              {expense.description || expense.subcategory || "Unnamed Expense"}
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 1 }} noWrap>
               {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}

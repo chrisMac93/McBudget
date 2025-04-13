@@ -43,38 +43,6 @@ const expenseCategories = [
   { value: 'subscription', label: 'Subscription' },
 ];
 
-// Subcategory options based on category
-const subcategories: Record<string, string[]> = {
-  fixed: [
-    'Mortgage/Rent', 
-    'Property Tax', 
-    'Insurance', 
-    'Car Payment',
-    'Utilities',
-    'Loan Payment',
-    'Other'
-  ],
-  variable: [
-    'Groceries', 
-    'Dining Out', 
-    'Entertainment', 
-    'Shopping',
-    'Transportation',
-    'Healthcare',
-    'Travel',
-    'Gifts',
-    'Other'
-  ],
-  subscription: [
-    'Streaming Services', 
-    'Software', 
-    'Memberships', 
-    'Online Services',
-    'Magazine/News',
-    'Other'
-  ]
-};
-
 type ExpenseCategory = 'fixed' | 'variable' | 'subscription';
 type FrequencyType = 'weekly' | 'biweekly' | 'monthly' | 'once';
 
@@ -90,7 +58,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
   
   const [formData, setFormData] = useState({
     category: 'fixed' as ExpenseCategory,
-    subcategory: 'Mortgage/Rent',
     amount: '',
     month: currentMonth,
     year: currentYear,
@@ -123,7 +90,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
         
       setFormData({
         category: initialExpense.category || 'fixed',
-        subcategory: initialExpense.subcategory || subcategories[initialExpense.category || 'fixed'][0],
         amount: String(initialExpense.amount) || '',
         month: initialExpense.month || currentMonth,
         year: initialExpense.year || currentYear,
@@ -152,7 +118,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
   const resetForm = () => {
     setFormData({
       category: 'fixed' as ExpenseCategory,
-      subcategory: 'Mortgage/Rent',
       amount: '',
       month: currentMonth,
       year: currentYear,
@@ -172,7 +137,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
     const newErrors: Record<string, string> = {};
     
     if (!formData.category) newErrors.category = 'Category is required';
-    if (!formData.subcategory) newErrors.subcategory = 'Subcategory is required';
+    if (!formData.description) newErrors.description = 'Description is required';
     if (!formData.amount) newErrors.amount = 'Amount is required';
     else if (isNaN(Number(formData.amount)) || Number(formData.amount) <= 0) {
       newErrors.amount = 'Amount must be a positive number';
@@ -213,7 +178,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
       setFormData({
         ...formData,
         [name]: category,
-        subcategory: subcategories[category][0]
       });
     } else {
       setFormData({
@@ -277,7 +241,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
         // Create template expense without month/year
         const expenseTemplate = {
           category: formData.category,
-          subcategory: formData.subcategory,
           amount: Number(formData.amount),
           recurring: formData.recurring,
           frequency: formData.frequency,
@@ -304,7 +267,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
         // Handle single expense - use the expectedDate directly
         await addOrUpdateExpense({
           category: formData.category,
-          subcategory: formData.subcategory,
           amount: Number(formData.amount),
           month: Number(formData.month),
           year: Number(formData.year),
@@ -369,23 +331,21 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
               {errors.category && <FormHelperText>{errors.category}</FormHelperText>}
             </FormControl>
             
-            <FormControl fullWidth error={!!errors.subcategory} variant="outlined">
-              <InputLabel>Subcategory</InputLabel>
-              <Select
-                name="subcategory"
-                value={formData.subcategory}
-                label="Subcategory"
-                onChange={handleSelectChange}
-                sx={{ borderRadius: 2 }}
-              >
-                {subcategories[formData.category].map((sub) => (
-                  <MenuItem key={sub} value={sub}>
-                    {sub}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.subcategory && <FormHelperText>{errors.subcategory}</FormHelperText>}
-            </FormControl>
+            <TextField
+              fullWidth
+              label="Description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="What is this expense for?"
+              required
+              variant="outlined"
+              error={!!errors.description}
+              helperText={errors.description}
+              InputProps={{
+                sx: { borderRadius: 2 }
+              }}
+            />
             
             <TextField
               fullWidth
@@ -572,20 +532,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSuccess, initialExpense }) 
               </Box>
             </Box>
           )}
-          
-          <TextField
-            fullWidth
-            label="Description (Optional)"
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            multiline
-            rows={3}
-            variant="outlined"
-            InputProps={{
-              sx: { borderRadius: 2 }
-            }}
-          />
           
           <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
             <Button 

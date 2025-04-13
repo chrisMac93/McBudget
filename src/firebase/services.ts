@@ -48,7 +48,7 @@ export interface Income extends BaseModel {
 // Types for Expenses
 export interface Expense extends BaseModel {
   category: 'fixed' | 'variable' | 'subscription';
-  subcategory: string;  // e.g., "Mortgage", "Groceries", "Netflix"
+  subcategory?: string;  // e.g., "Mortgage", "Groceries", "Netflix" - now optional
   amount: number;
   month: number;   // 1-12
   year: number;

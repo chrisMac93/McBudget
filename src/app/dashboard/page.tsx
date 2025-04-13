@@ -250,11 +250,11 @@ export default function DashboardPage() {
   };
 
   const handleTogglePending = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // Don't use event.preventDefault() as it might interfere with the Switch component
-    const newValue = event.target.checked;
+    // Prevent default form behavior to avoid page reload
+    event.preventDefault();
     
     // Update the state
-    setIncludePending(newValue);
+    setIncludePending(event.target.checked);
     
     // No need for manual update here as the useEffect will handle it
   };
