@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Paper,
-  Grid,
   MenuItem,
   FormControl,
   InputLabel,
@@ -118,8 +117,8 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+            <Box>
               <Card>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
@@ -133,16 +132,16 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = () => {
                   </Typography>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
             
-            <Grid item xs={12} md={4}>
+            <Box>
               <Card>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
                     Expenses
                   </Typography>
                   <Typography variant="h4" component="div" color="error">
-                    ${(summary?.totalFixedExpenses + summary?.totalVariableExpenses || 0).toFixed(2)}
+                    ${((summary?.totalFixedExpenses || 0) + (summary?.totalVariableExpenses || 0)).toFixed(2)}
                   </Typography>
                   <Divider sx={{ my: 1 }} />
                   <Typography variant="body2">
@@ -159,9 +158,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = () => {
                   </Typography>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
             
-            <Grid item xs={12} md={4}>
+            <Box>
               <Card>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
@@ -181,8 +180,8 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = () => {
                   </Typography>
                 </CardContent>
               </Card>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         )}
       </Paper>
       
